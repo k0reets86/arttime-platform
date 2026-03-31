@@ -1,0 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@700;800;900&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .primary-gradient { background: linear-gradient(135deg, #5d3fd3 0%, #a391ff 100%); }
+  .primary-gradient-hover:hover { background: linear-gradient(135deg, #5130c6 0%, #937dff 100%); }
+  .glass { background: rgba(255,255,255,0.80); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+  .spotlight { background: rgba(163,145,255,0.12); border-radius: 3rem; }
+}
