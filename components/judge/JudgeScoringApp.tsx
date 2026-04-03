@@ -1,12 +1,16 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   CheckCircle, Clock, Wifi, WifiOff, ChevronLeft,
   ChevronRight, Star, Loader2, Trophy, RotateCcw, Send
 } from 'lucide-react'
+import {
+  saveJudgeSession, loadJudgeSession,
+  queueScore, getPendingScores, markScoreSynced, getSyncedScores
+} from '@/lib/judge/db'
 
 interface Criterion { id: string; name_i18n: Record<string, string>; weight: number; max_score: number; sort_order: number }
 interface Nomination {
@@ -35,6 +39,7 @@ export default function JudgeScoringApp({
   judgeId, festivalId, assignments, applications, existingScores, locale, judgeName,
 }: Props) {
   const [isOnline, setIsOnline] = useState(true)
+  const [dbReady, setDbReady] = useState(false)
   const [activeNomId, setActiveNomId] = useState(assignments[0]?.nomination_id ?? '')
   const [activeAppId, setActiveAppId] = useState<string | null>(null)
   const [scores, setScores] = useState<ScoreMap>(() => {
@@ -51,6 +56,66 @@ export default function JudgeScoringApp({
     return map
   })
   const [pendingSync, setPendingSync] = useState<string[]>([])
+  const syncingRef = useRef(false)
+
+  // ─── IndexedDB: сохраняем сессию и подгружаем офлайн-данные ───
+  useEffect(() => {
+    const sessionId = `${festivalId}:${judgeId}`
+
+    async function initDb() {
+      try {
+        // 1. Сохраняем свежие данные с сервера
+        if (assignments.length > 0) {
+          await saveJudgeSession({
+            id: sessionId, judgeId, festivalId, judgeName,
+            assignments, applications,
+          })
+        }
+
+        // 2. Загружаем синхронизированные оценки из IndexedDB
+        const synced = await getSyncedScores(judgeId)
+        if (synced.length > 0) {
+          setScores(prev => {
+            const next = { ...prev }
+            for (const s of synced) {
+              if (!next[s.key]) {
+                next[s.key] = {
+                  total_score: s.totalScore,
+                  criteria_scores: s.criteriaScores,
+                  dirty: false, syncing: false, saved: true,
+                }
+              }
+            }
+            return next
+          })
+        }
+
+        // 3. Загружаем pending оценки (несинхронизированные)
+        const pending = await getPendingScores(judgeId)
+        if (pending.length > 0) {
+          setScores(prev => {
+            const next = { ...prev }
+            for (const p of pending) {
+              next[p.key] = {
+                total_score: p.totalScore,
+                criteria_scores: p.criteriaScores,
+                dirty: true, syncing: false, saved: false,
+              }
+            }
+            return next
+          })
+          setPendingSync(pending.map(p => p.key))
+        }
+
+        setDbReady(true)
+      } catch (err) {
+        console.warn('[Judge] IndexedDB init failed:', err)
+        setDbReady(true) // продолжаем без IndexedDB
+      }
+    }
+
+    initDb()
+  }, [festivalId, judgeId, judgeName, assignments, applications])
 
   // Online/offline detection
   useEffect(() => {
@@ -97,7 +162,20 @@ export default function JudgeScoringApp({
   const syncScore = useCallback(async (appId: string, nomId: string) => {
     const scoreData = scores[key(appId, nomId)]
     if (!scoreData || !scoreData.dirty) return
-    setScores(prev => ({ ...prev, [key(appId, nomId)]: { ...prev[key(appId, nomId)], syncing: true } }))
+    const scoreKey = key(appId, nomId)
+
+    // Сохраняем в IndexedDB сразу (офлайн-безопасность)
+    try {
+      await queueScore({
+        key: scoreKey, judgeId, festivalId,
+        applicationId: appId, nominationId: nomId,
+        totalScore: scoreData.total_score, criteriaScores: scoreData.criteria_scores,
+      })
+    } catch (e) {
+      console.warn('[Judge] IndexedDB queue failed:', e)
+    }
+
+    setScores(prev => ({ ...prev, [scoreKey]: { ...prev[scoreKey], syncing: true } }))
     try {
       const res = await fetch('/api/judge/scores', {
         method: 'POST',
@@ -108,20 +186,27 @@ export default function JudgeScoringApp({
         }),
       })
       if (res.ok) {
+        // Помечаем как синхронизированное в IndexedDB
+        try {
+          await markScoreSynced(scoreKey, judgeId, scoreData.total_score, scoreData.criteria_scores)
+        } catch (e) {
+          console.warn('[Judge] markScoreSynced failed:', e)
+        }
         setScores(prev => ({
           ...prev,
-          [key(appId, nomId)]: { ...prev[key(appId, nomId)], dirty: false, syncing: false, saved: true }
+          [scoreKey]: { ...prev[scoreKey], dirty: false, syncing: false, saved: true }
         }))
+        setPendingSync(p => p.filter(k => k !== scoreKey))
       } else {
-        // Queue for retry
-        setPendingSync(p => [...p.filter(k => k !== key(appId, nomId)), key(appId, nomId)])
-        setScores(prev => ({ ...prev, [key(appId, nomId)]: { ...prev[key(appId, nomId)], syncing: false } }))
+        setPendingSync(p => [...p.filter(k => k !== scoreKey), scoreKey])
+        setScores(prev => ({ ...prev, [scoreKey]: { ...prev[scoreKey], syncing: false } }))
       }
     } catch {
-      setPendingSync(p => [...p.filter(k => k !== key(appId, nomId)), key(appId, nomId)])
-      setScores(prev => ({ ...prev, [key(appId, nomId)]: { ...prev[key(appId, nomId)], syncing: false } }))
+      // Сеть недоступна — остаётся в IndexedDB до восстановления
+      setPendingSync(p => [...p.filter(k => k !== scoreKey), scoreKey])
+      setScores(prev => ({ ...prev, [scoreKey]: { ...prev[scoreKey], syncing: false } }))
     }
-  }, [scores, festivalId])
+  }, [scores, festivalId, judgeId])
 
   const syncPending = useCallback(() => {
     for (const k of pendingSync) {

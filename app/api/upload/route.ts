@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadToR2 } from '@/lib/r2/upload'
-import { v4 as uuidv4 } from 'uuid'
+const uuidv4 = () => crypto.randomUUID()
 
 // Лимиты согласно ТЗ раздел 13.6
 const MAX_SIZE_VIDEO = 500 * 1024 * 1024    // 500 MB

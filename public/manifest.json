@@ -1,0 +1,36 @@
+{
+  "name": "ArtTime — Судейский пульт",
+  "short_name": "ArtTime",
+  "description": "Платформа судейства ArtTime World Talent Festival",
+  "start_url": "/ru/judge",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFBFE",
+  "theme_color": "#6750A4",
+  "lang": "ru",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Судейский пульт",
+      "short_name": "Пульт",
+      "description": "Открыть судейский пульт",
+      "url": "/ru/judge",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
