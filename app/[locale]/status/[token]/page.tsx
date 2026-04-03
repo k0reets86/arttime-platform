@@ -4,43 +4,30 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Clock, XCircle, ChevronLeft, Search } from 'lucide-react'
-import StatusSearch from '@/components/apply/StatusSearch'
-import { redirect } from 'next/navigation'
+import { CheckCircle, Clock, XCircle, ChevronLeft } from 'lucide-react'
 
-export default async function StatusPage({
-  params: { locale },
+export default async function StatusTokenPage({
+  params: { locale, token },
   searchParams,
 }: {
-  params: { locale: string }
-  searchParams: { id?: string; email?: string; payment?: string }
+  params: { locale: string; token: string }
+  searchParams: { payment?: string }
 }) {
-  // Редирект старого формата ?id= на новый /status/[token]
-  if (searchParams.id) {
-    const suffix = searchParams.payment ? `?payment=${searchParams.payment}` : ''
-    redirect(`/${locale}/status/${searchParams.id}${suffix}`)
-  }
-
   const t = await getTranslations({ locale, namespace: 'status' })
+  const supabase = createServerSupabaseClient()
 
-  let application = null
-  if (searchParams.email) {
-    const supabase = createServerSupabaseClient()
-    const { data } = await supabase
-      .from('applications')
-      .select(`
-        *,
-        categories(name_i18n),
-        nominations(name_i18n),
-        application_packages(*, packages(*)),
-        payments(*)
-      `)
-      .eq('contact_email', searchParams.email)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-    application = data
-  }
+  // Ищем заявку по ID (UUID) или tracking_token
+  const { data: application } = await supabase
+    .from('applications')
+    .select(`
+      *,
+      categories(name_i18n),
+      nominations(name_i18n),
+      application_packages(*, packages(*)),
+      payments(*)
+    `)
+    .or(`id.eq.${token},tracking_token.eq.${token}`)
+    .single()
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -83,12 +70,9 @@ export default async function StatusPage({
           </div>
         )}
 
-        {/* Search form */}
-        <StatusSearch locale={locale} />
-
         {/* Application details */}
-        {application && (
-          <div className="mt-8 space-y-4">
+        {application ? (
+          <div className="space-y-4">
             <div className="bg-surface-container-lowest rounded-xl p-6 shadow-radiant space-y-4">
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
@@ -100,7 +84,7 @@ export default async function StatusPage({
                     {(application as any).contact_email}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {getStatusIcon((application as any).status)}
                   <Badge variant={getStatusVariant((application as any).status)}>
                     {t(`status_${(application as any).status}` as any)}
@@ -118,14 +102,17 @@ export default async function StatusPage({
                 </div>
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
-                  <Badge variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'} className="mt-1">
+                  <Badge
+                    variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'}
+                    className="mt-1"
+                  >
                     {t(`payment_${(application as any).payment_status}` as any)}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('submitted_at')}</p>
                   <p className="text-sm text-on-surface">
-                    {new Date((application as any).created_at).toLocaleDateString()}
+                    {new Date((application as any).created_at).toLocaleDateString(locale)}
                   </p>
                 </div>
                 <div>
@@ -135,15 +122,53 @@ export default async function StatusPage({
                   </p>
                 </div>
               </div>
+
+              {/* Nomination + Category */}
+              {((application as any).nominations || (application as any).categories) && (
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant border-opacity-10">
+                  {(application as any).categories && (
+                    <div>
+                      <p className="text-xs text-on-surface-variant">Категория</p>
+                      <p className="text-sm text-on-surface font-medium">
+                        {(application as any).categories?.name_i18n?.ru || '—'}
+                      </p>
+                    </div>
+                  )}
+                  {(application as any).nominations && (
+                    <div>
+                      <p className="text-xs text-on-surface-variant">Номинация</p>
+                      <p className="text-sm text-on-surface font-medium">
+                        {(application as any).nominations?.name_i18n?.ru || '—'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Back to search */}
+            <div className="text-center">
+              <Link
+                href={`/${locale}/status`}
+                className="text-sm text-on-surface-variant hover:text-primary transition-colors"
+              >
+                ← Найти другую заявку
+              </Link>
             </div>
           </div>
-        )}
-
-        {/* Not found */}
-        {searchParams.id && !application && (
-          <div className="mt-8 text-center space-y-4">
-            <Search className="w-12 h-12 text-on-surface-variant mx-auto" />
-            <p className="text-on-surface-variant">{t('not_found')}</p>
+        ) : (
+          /* Not found */
+          <div className="mt-8 text-center space-y-4 bg-surface-container-lowest rounded-xl p-8 shadow-radiant">
+            <div className="w-16 h-16 rounded-2xl bg-surface-container-high mx-auto flex items-center justify-center">
+              <XCircle className="w-8 h-8 text-on-surface-variant" />
+            </div>
+            <p className="font-medium text-on-surface">{t('not_found')}</p>
+            <Link
+              href={`/${locale}/status`}
+              className="inline-block mt-2 text-sm text-primary hover:underline"
+            >
+              Поиск по ID или email
+            </Link>
           </div>
         )}
       </div>

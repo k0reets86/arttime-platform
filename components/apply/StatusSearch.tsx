@@ -21,7 +21,8 @@ export default function StatusSearch({ locale }: Props) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (id.trim()) {
-      router.push(`/${locale}/status?id=${encodeURIComponent(id.trim())}`)
+      // Новый URL формат: /status/[token]
+      router.push(`/${locale}/status/${encodeURIComponent(id.trim())}`)
     } else if (email.trim()) {
       router.push(`/${locale}/status?email=${encodeURIComponent(email.trim())}`)
     }
