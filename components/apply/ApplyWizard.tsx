@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,14 @@ import Step2Info from './steps/Step2Info'
 import Step3Performance from './steps/Step3Performance'
 import Step4Packages from './steps/Step4Packages'
 import Step5Payment from './steps/Step5Payment'
+
+/** Информация о выбранном файле (для отображения в UI) */
+export interface FileInfo {
+  id: string          // временный локальный ID
+  name: string
+  type: 'photo' | 'music' | 'doc'
+  size: number
+}
 
 export interface WizardData {
   // Step 1
@@ -32,6 +40,7 @@ export interface WizardData {
   performanceDurationSec: number
   videoLink: string
   notes: string
+  fileInfos: FileInfo[]     // для отображения выбранных файлов
   // Step 4
   selectedPackages: Array<{ packageId: string; quantity: number }>
   // Step 5 — set after Stripe redirect
@@ -55,6 +64,7 @@ const INITIAL_DATA: WizardData = {
   performanceDurationSec: 0,
   videoLink: '',
   notes: '',
+  fileInfos: [],
   selectedPackages: [],
   applicationId: '',
 }
@@ -72,7 +82,10 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
   const [step, setStep] = useState(1)
   const [data, setData] = useState<WizardData>({ ...INITIAL_DATA, festivalId })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [errors, setErrors] = useState<Partial<Record<keyof WizardData, string>>>({})
+  // Хранилище реальных File объектов (не сериализуются в JSON)
+  const pendingFilesRef = useRef<Map<string, File>>(new Map())
 
   const updateData = useCallback((patch: Partial<WizardData>) => {
     setData(prev => ({ ...prev, ...patch }))
@@ -118,7 +131,9 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
   const handleSubmit = async () => {
     if (!validateStep(step)) return
     setIsSubmitting(true)
+    setUploadStatus('')
     try {
+      // 1. Создаём заявку
       const res = await fetch('/api/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,17 +141,38 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Submit failed')
-      // Redirect to Stripe or status page
+
+      const applicationId: string = json.applicationId
+
+      // 2. Загружаем файлы если есть
+      if (pendingFilesRef.current.size > 0) {
+        const total = pendingFilesRef.current.size
+        let uploaded = 0
+        for (const [fileId, file] of pendingFilesRef.current.entries()) {
+          const info = data.fileInfos.find(f => f.id === fileId)
+          if (!info) continue
+          setUploadStatus(`Загрузка файлов: ${uploaded + 1}/${total}...`)
+          const fd = new FormData()
+          fd.append('file', file)
+          fd.append('applicationId', applicationId)
+          fd.append('type', info.type)
+          await fetch('/api/upload', { method: 'POST', body: fd })
+          uploaded++
+        }
+      }
+
+      // 3. Редирект на Stripe или страницу статуса
       if (json.checkoutUrl) {
         window.location.href = json.checkoutUrl
       } else {
-        router.push(`/${locale}/status?id=${json.applicationId}`)
+        router.push(`/${locale}/status?id=${applicationId}`)
       }
     } catch (e) {
       console.error(e)
       setErrors({ applicationId: e instanceof Error ? e.message : 'Submit error' })
     } finally {
       setIsSubmitting(false)
+      setUploadStatus('')
     }
   }
 
@@ -173,7 +209,13 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
           <Step2Info data={data} updateData={updateData} errors={errors} />
         )}
         {step === 3 && (
-          <Step3Performance data={data} updateData={updateData} errors={errors} />
+          <Step3Performance
+            data={data}
+            updateData={updateData}
+            errors={errors}
+            onFileAdd={(id, file) => pendingFilesRef.current.set(id, file)}
+            onFileRemove={(id) => pendingFilesRef.current.delete(id)}
+          />
         )}
         {step === 4 && (
           <Step4Packages data={data} updateData={updateData} errors={errors} locale={locale} />
@@ -200,14 +242,17 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
             <ChevronRight className="w-4 h-4" />
           </Button>
         ) : (
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="primary-gradient text-on-primary"
-          >
-            {isSubmitting ? t('submitting') : t('submit')}
-            {!isSubmitting && <Check className="w-4 h-4" />}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            {uploadStatus && <p className="text-xs text-on-surface-variant">{uploadStatus}</p>}
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="primary-gradient text-on-primary"
+            >
+              {isSubmitting ? t('submitting') : t('submit')}
+              {!isSubmitting && <Check className="w-4 h-4" />}
+            </Button>
+          </div>
         )}
       </div>
     </div>
