@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Upload, X, Music, Image, FileText, Loader2 } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
+const uuidv4 = () => crypto.randomUUID()
 
 interface Props {
   data: WizardData
