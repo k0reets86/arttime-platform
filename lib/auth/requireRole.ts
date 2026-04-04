@@ -40,7 +40,7 @@ export async function requireRole(allowedRoles: string[], locale: string) {
   return { session, role: user.role as UserRole, festivalId: user.festival_id, user }
 }
 
-export async function getCurrentUser(locale = 'ru') {
+export async function getCurrentUser() {
   const supabase = createServerSupabaseClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return null
@@ -50,4 +50,32 @@ export async function getCurrentUser(locale = 'ru') {
     .eq('id', session.user.id)
     .single()
   return user
+}
+
+/**
+ * requireRoleApi — guard для API-маршрутов (не делает redirect).
+ * Бросает ошибку 'Unauthorized' если нет сессии/роли.
+ * Используй в try/catch и возвращай 401/403.
+ *
+ * Поддерживает backward-compat: 'admin' → ['super_admin', 'organizer']
+ */
+export async function requireRoleApi(allowedRoles: string[]) {
+  const supabase = createServerSupabaseClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, role, festival_id, display_name, email, active')
+    .eq('id', session.user.id)
+    .single()
+
+  if (!user || !user.active) throw new Error('Unauthorized')
+
+  const expandedRoles = allowedRoles.flatMap(r =>
+    r === 'admin' ? ['super_admin', 'organizer'] : [r]
+  )
+  if (!expandedRoles.includes(user.role)) throw new Error('Forbidden')
+
+  return { session, role: user.role as UserRole, festivalId: user.festival_id as string, user }
 }

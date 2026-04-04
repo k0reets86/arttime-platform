@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/server'
+import { requireRoleApi } from '@/lib/auth/requireRole'
 
 export async function POST(req: NextRequest) {
   try {
+    const { festivalId } = await requireRoleApi(['admin'])
     const supabase = createServerSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const { data: adminUser } = await supabase
-      .from('users').select('role, festival_id, active')
-      .eq('id', session.user.id).single()
-    if (!adminUser || adminUser.role !== 'admin' || !adminUser.active) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
 
     const { email, display_name, password, festival_id } = await req.json()
     if (!email || !password || !display_name) {
       return NextResponse.json({ error: 'email, display_name и password обязательны' }, { status: 400 })
     }
-    if (festival_id !== adminUser.festival_id) {
+    if (festival_id !== festivalId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -42,7 +35,7 @@ export async function POST(req: NextRequest) {
       email,
       display_name,
       role: 'judge',
-      festival_id: adminUser.festival_id,
+      festival_id: festivalId,
       active: true,
     })
     if (profileError) {
@@ -53,6 +46,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: `Судья ${display_name} добавлен` })
   } catch (err: any) {
+    if (err.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (err.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

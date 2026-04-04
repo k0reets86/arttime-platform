@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-
-async function getAdmin(supabase: ReturnType<typeof createServerSupabaseClient>) {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
-  const { data: user } = await supabase.from('users')
-    .select('role, festival_id, active').eq('id', session.user.id).single()
-  if (!user || user.role !== 'admin' || !user.active) return null
-  return user
-}
+import { requireRoleApi } from '@/lib/auth/requireRole'
 
 export async function PATCH(req: NextRequest) {
   try {
+    const { festivalId } = await requireRoleApi(['admin'])
     const supabase = createServerSupabaseClient()
-    const admin = await getAdmin(supabase)
-    if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
     const allowed = [
@@ -27,11 +18,17 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { error } = await supabase.from('festivals')
-      .update(update).eq('id', admin.festival_id!)
+      .update(update).eq('id', festivalId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (err: any) {
+    if (err.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (err.message === 'Forbidden') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
