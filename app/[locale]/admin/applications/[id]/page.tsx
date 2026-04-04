@@ -10,7 +10,7 @@ import ApplicationChat from '@/components/admin/ApplicationChat'
 import AdminAttention from '@/components/admin/AdminAttention'
 import {
   ChevronLeft, User, Mail, Phone, Globe, MapPin,
-  Video, Clock, FileText, Package, CreditCard, Users,
+  Video, Clock, FileText, Users,
   Hash, Music
 } from 'lucide-react'
 
@@ -27,11 +27,11 @@ export default async function ApplicationDetailPage({
     .select(`
       *,
       categories(id, name_i18n),
-      nominations(id, name_i18n, criteria(id, name_i18n, weight, max_score)),
+      nominations(id, name_i18n),
       application_members(id, full_name, birth_date, role),
       application_packages(
-        id, quantity, unit_price_at_purchase,
-        packages(id, name_i18n, description_i18n)
+        id, quantity, paid_amount,
+        packages(id, name_i18n)
       ),
       payments(id, amount, currency, status, provider, created_at, stripe_payment_intent_id)
     `)
@@ -63,7 +63,7 @@ export default async function ApplicationDetailPage({
   const sc = statusConfig[app.status] ?? { label: app.status, variant: 'outline' as const }
 
   const totalCost = (app.application_packages ?? []).reduce(
-    (s: number, p: any) => s + p.quantity * p.unit_price_at_purchase, 0
+    (s: number, p: any) => s + (p.paid_amount ?? 0), 0
   )
 
   return (
@@ -219,7 +219,7 @@ export default async function ApplicationDetailPage({
                       <p className="text-xs text-on-surface-variant">× {p.quantity}</p>
                     </div>
                     <p className="text-sm font-medium text-on-surface shrink-0">
-                      {(p.unit_price_at_purchase * p.quantity).toFixed(2)} €
+                      {(p.paid_amount ?? 0).toFixed(2)} €
                     </p>
                   </div>
                 ))}
