@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/auth/requireRole'
+import { requireRoleApi } from '@/lib/auth/requireRole'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
 // GET — получить шаблон диплома фестиваля
 export async function GET() {
   try {
-    const { festivalId } = await requireRole(['admin'])
+    const { festivalId } = await requireRoleApi(['admin'])
     const supabase = createServerSupabaseClient()
 
     const { data, error } = await supabase
@@ -27,7 +27,7 @@ export async function GET() {
 // POST — upsert шаблон диплома
 export async function POST(req: NextRequest) {
   try {
-    const { festivalId } = await requireRole(['admin'])
+    const { festivalId } = await requireRoleApi(['admin'])
     const supabase = createServerSupabaseClient()
 
     const body = await req.json()

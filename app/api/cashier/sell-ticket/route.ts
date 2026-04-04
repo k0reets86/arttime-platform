@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/auth/requireRole'
+import { requireRoleApi } from '@/lib/auth/requireRole'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { randomBytes } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
-    const { user, festivalId } = await requireRole(['cashier', 'admin'])
+    const { user, festivalId } = await requireRoleApi(['cashier', 'admin'])
     const supabase = createServerSupabaseClient()
 
     const body = await req.json()
