@@ -7,7 +7,7 @@ import type { Tables } from '@/lib/supabase/types'
 import type { WizardData } from '../ApplyWizard'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Users, User } from 'lucide-react'
+import { Users, User, Check } from 'lucide-react'
 
 type Category = Tables<'categories'>
 type Nomination = Tables<'nominations'>
@@ -44,6 +44,7 @@ export default function Step1Type({ data, updateData, errors, locale }: Props) {
       .from('nominations')
       .select('*')
       .eq('category_id', data.categoryId)
+      .order('age_min', { ascending: true })
       .then(({ data: noms }) => setNominations(noms ?? []))
   }, [data.categoryId])
 
@@ -53,50 +54,79 @@ export default function Step1Type({ data, updateData, errors, locale }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h2 className="font-headline text-2xl font-bold text-on-surface mb-1">{t('step1')}</h2>
+        <h2 className="font-headline text-2xl font-bold text-on-surface mb-1">
+          {t('step1')}
+        </h2>
         <p className="text-sm text-on-surface-variant">{t('step1_desc')}</p>
       </div>
 
-      {/* Solo / Group */}
-      <div className="space-y-2">
-        <Label>{t('applicant_type')}</Label>
-        <div className="grid grid-cols-2 gap-3">
-          {(['solo', 'group'] as const).map((type) => (
+      {/* Solo / Group — rich cards */}
+      <div className="space-y-3">
+        <label className="block font-label text-xs font-black uppercase tracking-widest text-on-surface-variant">
+          {t('applicant_type')}
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          {([
+            {
+              type: 'solo' as const,
+              Icon: User,
+              title: t('solo'),
+              desc: 'Одиночное выступление — сольный номер одного артиста.',
+            },
+            {
+              type: 'group' as const,
+              Icon: Users,
+              title: t('group'),
+              desc: 'Коллектив — ансамбль, дуэт, оркестр или танцевальная группа.',
+            },
+          ]).map(({ type, Icon, title, desc }) => (
             <button
               key={type}
               type="button"
               onClick={() => updateData({ applicantType: type })}
-              className={`flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all ${
+              className={`relative flex flex-col p-6 rounded-2xl border-2 transition-all duration-200 text-left group ${
                 data.applicantType === type
-                  ? 'border-primary bg-primary/5 shadow-radiant'
-                  : 'border-outline-variant hover:border-primary/40 hover:bg-surface-container-low'
+                  ? 'border-primary bg-primary/5 shadow-radiant-sm'
+                  : 'border-surface-container bg-surface-container-low hover:border-primary/40 hover:bg-surface-container-low'
               }`}
             >
-              {type === 'solo' ? (
-                <User className={`w-8 h-8 ${data.applicantType === type ? 'text-primary' : 'text-on-surface-variant'}`} />
-              ) : (
-                <Users className={`w-8 h-8 ${data.applicantType === type ? 'text-primary' : 'text-on-surface-variant'}`} />
+              {/* Check indicator */}
+              {data.applicantType === type && (
+                <span className="absolute top-4 right-4 text-primary">
+                  <Check className="w-5 h-5" />
+                </span>
               )}
-              <span className={`font-semibold ${data.applicantType === type ? 'text-primary' : 'text-on-surface'}`}>
-                {t(type as 'solo' | 'group')}
-              </span>
+              {/* Icon box */}
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-sm transition-transform group-hover:scale-110 ${
+                data.applicantType === type
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-container-lowest text-primary'
+              }`}>
+                <Icon className="w-6 h-6" />
+              </div>
+              <p className="font-headline font-bold text-base text-on-surface mb-1">{title}</p>
+              <p className="text-xs text-on-surface-variant leading-relaxed">{desc}</p>
             </button>
           ))}
         </div>
-        {errors.applicantType && <p className="text-xs text-red-500 mt-1">{errors.applicantType}</p>}
+        {errors.applicantType && (
+          <p className="text-xs text-error mt-1">{errors.applicantType}</p>
+        )}
       </div>
 
-      {/* Category */}
+      {/* Category (Жанр) */}
       <div className="space-y-2">
-        <Label htmlFor="category">{t('category')}</Label>
+        <label className="block font-label text-xs font-black uppercase tracking-widest text-on-surface-variant">
+          {t('category')}
+        </label>
         <Select
           value={data.categoryId}
           onValueChange={(v) => updateData({ categoryId: v, nominationId: '' })}
           disabled={loadingCats}
         >
-          <SelectTrigger id="category">
+          <SelectTrigger className="bg-surface-container-low border-2 border-transparent rounded-xl py-6 px-5 focus:border-primary focus:bg-white transition-all h-auto">
             <SelectValue placeholder={loadingCats ? t('loading') : t('select_category')} />
           </SelectTrigger>
           <SelectContent>
@@ -107,25 +137,29 @@ export default function Step1Type({ data, updateData, errors, locale }: Props) {
             ))}
           </SelectContent>
         </Select>
-        {errors.categoryId && <p className="text-xs text-red-500 mt-1">{errors.categoryId}</p>}
+        {errors.categoryId && (
+          <p className="text-xs text-error mt-1">{errors.categoryId}</p>
+        )}
       </div>
 
-      {/* Nomination */}
+      {/* Nomination (age group) */}
       {data.categoryId && (
         <div className="space-y-2">
-          <Label htmlFor="nomination">{t('nomination')}</Label>
+          <label className="block font-label text-xs font-black uppercase tracking-widest text-on-surface-variant">
+            {t('nomination')}
+          </label>
           <Select
             value={data.nominationId}
             onValueChange={(v) => updateData({ nominationId: v })}
           >
-            <SelectTrigger id="nomination">
+            <SelectTrigger className="bg-surface-container-low border-2 border-transparent rounded-xl py-6 px-5 focus:border-primary focus:bg-white transition-all h-auto">
               <SelectValue placeholder={t('select_nomination')} />
             </SelectTrigger>
             <SelectContent>
               {nominations.map(nom => (
                 <SelectItem key={nom.id} value={nom.id}>
                   {getI18n(nom.name_i18n as Record<string, string>)}
-                  {nom.age_min && nom.age_max && (
+                  {nom.age_min != null && nom.age_max != null && (
                     <span className="ml-2 text-on-surface-variant text-xs">
                       ({nom.age_min}–{nom.age_max})
                     </span>
@@ -134,7 +168,9 @@ export default function Step1Type({ data, updateData, errors, locale }: Props) {
               ))}
             </SelectContent>
           </Select>
-          {errors.nominationId && <p className="text-xs text-red-500 mt-1">{errors.nominationId}</p>}
+          {errors.nominationId && (
+            <p className="text-xs text-error mt-1">{errors.nominationId}</p>
+          )}
         </div>
       )}
     </div>

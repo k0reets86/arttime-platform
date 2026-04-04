@@ -52,14 +52,7 @@ export default async function ApplyPage({ params: { locale } }: { params: { loca
         <LanguageSwitcher />
       </nav>
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-10">
-          <h1 className="font-headline text-3xl sm:text-4xl font-bold text-on-surface mb-2">
-            {t('title')}
-          </h1>
-          <p className="text-on-surface-variant">{festival.name}</p>
-        </div>
-
+      <div className="w-full px-6 md:px-10 lg:px-16 py-12">
         <ApplyWizard festivalId={festival.id} locale={locale} />
       </div>
     </main>
