@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { createAdminSupabaseClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { requireRoleApi } from '@/lib/auth/requireRole'
 
 export async function POST(req: NextRequest) {
   try {
     const { festivalId } = await requireRoleApi(['admin'])
-    const supabase = createServerSupabaseClient()
 
     const { email, display_name, password, festival_id } = await req.json()
     if (!email || !password || !display_name) {
       return NextResponse.json({ error: 'email, display_name и password обязательны' }, { status: 400 })
     }
-    if (festival_id !== festivalId) {
+    if (festival_id && festival_id !== festivalId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -29,8 +27,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    // Create profile in users table
-    const { error: profileError } = await supabase.from('users').insert({
+    // Create profile — используем adminClient чтобы обойти RLS
+    const { error: profileError } = await adminClient.from('users').insert({
       id: authData.user.id,
       email,
       display_name,
@@ -39,19 +37,14 @@ export async function POST(req: NextRequest) {
       active: true,
     })
     if (profileError) {
-      // Rollback auth user
       await adminClient.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, message: `Судья ${display_name} добавлен` })
   } catch (err: any) {
-    if (err.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (err.message === 'Forbidden') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    if (err.message === 'Unauthorized') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (err.message === 'Forbidden')    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

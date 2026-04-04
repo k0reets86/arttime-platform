@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'email, display_name и role обязательны' }, { status: 400 })
     }
 
-    const allowedRoles = ['organizer', 'judge', 'cashier', 'super_admin']
+    const allowedRoles = ['organizer', 'judge', 'cashier', 'super_admin', 'stage_admin', 'music_manager']
     if (!allowedRoles.includes(role)) {
       return NextResponse.json({ error: 'Недопустимая роль' }, { status: 400 })
     }

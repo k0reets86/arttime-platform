@@ -23,7 +23,11 @@ export default function AdminSidebar({ locale, role, festivalName }: Props) {
   const base = `/${locale}/admin`
 
   // Нормализуем роль: super_admin и organizer оба считаются 'admin' для показа пунктов
-  const effectiveRole = (role === 'super_admin' || role === 'organizer') ? 'admin' : role
+  // stage_admin и music_manager считаются 'staff' — видят только нужные им разделы
+  const effectiveRole =
+    (role === 'super_admin' || role === 'organizer') ? 'admin'
+    : (role === 'stage_admin' || role === 'music_manager') ? 'staff'
+    : role
 
   const navItems = [
     { href: base, label: t('dashboard'), icon: LayoutDashboard, roles: ['admin', 'judge', 'cashier'] },
@@ -32,7 +36,7 @@ export default function AdminSidebar({ locale, role, festivalName }: Props) {
     { href: `${base}/scoring`, label: 'Судейство', icon: Activity, roles: ['admin'] },
     { href: `${base}/results`, label: t('results'), icon: Trophy, roles: ['admin'] },
     { href: `/${locale}/judge`, label: t('scoring'), icon: Star, roles: ['judge', 'admin'] },
-    { href: `${base}/program`, label: t('program'), icon: Calendar, roles: ['admin'] },
+    { href: `${base}/program`, label: t('program'), icon: Calendar, roles: ['admin', 'staff'] },
     { href: `/${locale}/cashier`, label: t('cashier'), icon: CreditCard, roles: ['admin', 'cashier'] },
     { href: `${base}/reports`, label: t('reports'), icon: Download, roles: ['admin'] },
     { href: `${base}/settings`, label: t('settings'), icon: Settings, roles: ['admin'] },

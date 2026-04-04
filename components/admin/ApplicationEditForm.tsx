@@ -17,8 +17,7 @@ interface Props {
     performance_title: string | null
     performance_duration_sec: number | null
     video_link: string | null
-    technical_notes: string | null
-    admin_notes: string | null
+    notes: string | null
   }
 }
 
@@ -194,35 +193,17 @@ export default function ApplicationEditForm({ applicationId, initialData }: Prop
           <Field label="Технические требования">
             {editing
               ? <textarea
-                  value={form.technical_notes ?? ''}
-                  onChange={e => set('technical_notes', e.target.value)}
+                  value={form.notes ?? ''}
+                  onChange={e => set('notes', e.target.value)}
                   rows={3}
                   className="w-full rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                   placeholder="Технический райдер..."
                 />
-              : <ReadVal value={form.technical_notes} multiline />
+              : <ReadVal value={form.notes} multiline />
             }
           </Field>
         </fieldset>
 
-        {/* Заметки администратора */}
-        <fieldset className="border-t border-outline-variant/10 pt-4">
-          <legend className="text-xs text-on-surface-variant font-medium mb-2">
-            Внутренние заметки администратора (не видны участнику)
-          </legend>
-          {editing
-            ? <textarea
-                value={form.admin_notes ?? ''}
-                onChange={e => set('admin_notes', e.target.value)}
-                rows={4}
-                className="w-full rounded-lg border border-outline-variant/40 bg-amber-50 border-amber-200 px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-amber-300/50 resize-none"
-                placeholder="Внутренние заметки команды..."
-              />
-            : <div className={`text-sm rounded-lg p-3 ${form.admin_notes ? 'bg-amber-50 text-on-surface whitespace-pre-wrap' : 'text-on-surface-variant italic'}`}>
-                {form.admin_notes || 'Нет заметок'}
-              </div>
-          }
-        </fieldset>
       </div>
     </div>
   )

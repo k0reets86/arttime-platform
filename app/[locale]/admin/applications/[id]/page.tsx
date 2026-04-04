@@ -149,10 +149,10 @@ export default async function ApplicationDetailPage({
                 </div>
               </div>
             )}
-            {app.technical_notes && (
+            {app.notes && (
               <div className="mt-3 p-3 bg-surface-container-low rounded-lg">
                 <p className="text-xs text-on-surface-variant mb-1">Технические требования</p>
-                <p className="text-sm text-on-surface whitespace-pre-wrap">{app.technical_notes}</p>
+                <p className="text-sm text-on-surface whitespace-pre-wrap">{app.notes}</p>
               </div>
             )}
           </Section>
@@ -193,8 +193,7 @@ export default async function ApplicationDetailPage({
               performance_title: app.performance_title,
               performance_duration_sec: app.performance_duration_sec,
               video_link: app.video_link,
-              technical_notes: app.technical_notes,
-              admin_notes: app.admin_notes,
+              notes: app.notes,
             }}
           />
 

@@ -8,7 +8,7 @@ export default async function ProgramPage({
 }: {
   params: { locale: string }
 }) {
-  const { festivalId } = await requireRole(['admin'], locale)
+  const { festivalId } = await requireRole(['admin', 'stage_admin', 'music_manager'], locale)
   const supabase = createServerSupabaseClient()
 
   const [{ data: programSlots }, { data: nominations }, { data: approvedApps }] = await Promise.all([
@@ -24,8 +24,8 @@ export default async function ProgramPage({
       .order('slot_number'),
     supabase
       .from('nominations')
-      .select('id, name_i18n, categories(name_i18n)')
-      .eq('festival_id', festivalId!)
+      .select('id, name_i18n, categories!inner(name_i18n, festival_id)')
+      .eq('categories.festival_id', festivalId!)
       .eq('active', true)
       .order('sort_order'),
     supabase

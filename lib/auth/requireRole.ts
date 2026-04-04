@@ -1,14 +1,29 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export type UserRole = 'super_admin' | 'organizer' | 'judge' | 'cashier' | 'viewer'
+export type UserRole =
+  | 'super_admin'
+  | 'organizer'
+  | 'judge'
+  | 'cashier'
+  | 'stage_admin'   // Админ сцены: видит расписание + тех.требования, может редактировать программу
+  | 'music_manager' // Музыкальный менеджер: видит/редактирует программу/плейлист
+  | 'viewer'
 
-/** Роли с правами администратора (доступ к панели /admin) */
+/** Роли с полными правами администратора */
 export const ADMIN_ROLES: UserRole[] = ['super_admin', 'organizer']
+
+/** Роли с доступом к панели /admin (не обязательно полные права) */
+export const STAFF_ROLES: UserRole[] = ['super_admin', 'organizer', 'stage_admin', 'music_manager']
 
 /** Проверяет, имеет ли роль права администратора */
 export function isAdminRole(role: string): boolean {
   return ADMIN_ROLES.includes(role as UserRole)
+}
+
+/** Проверяет, является ли роль персоналом (доступ к /admin) */
+export function isStaffRole(role: string): boolean {
+  return STAFF_ROLES.includes(role as UserRole)
 }
 
 /**

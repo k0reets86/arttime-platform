@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Send, Loader2, MessageCircle, RefreshCw } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 interface Message {
   id: string
@@ -24,8 +25,17 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
+  // Ref на контейнер с сообщениями — скроллим только его, не всю страницу
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Флаг первой загрузки — не скроллим вниз при mount (чтобы страница не прыгала)
+  const isInitialLoad = useRef(true)
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    const el = scrollAreaRef.current
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'instant' })
+  }, [])
 
   const loadMessages = useCallback(async () => {
     try {
@@ -33,7 +43,6 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
       if (!res.ok) return
       const data = await res.json()
       setMessages(data.messages ?? [])
-      // Помечаем как прочитанные сообщения от участника
       await fetch(`/api/applications/${applicationId}/messages`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -46,15 +55,51 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
     }
   }, [applicationId])
 
+  // Начальная загрузка
   useEffect(() => {
     loadMessages()
-    // Автообновление каждые 15 секунд
-    const interval = setInterval(loadMessages, 15000)
-    return () => clearInterval(interval)
   }, [loadMessages])
 
+  // Supabase Realtime — подписываемся на новые сообщения в реальном времени
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`chat-${applicationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'application_messages',
+          filter: `application_id=eq.${applicationId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as Message
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev
+            return [...prev, newMsg]
+          })
+          setTimeout(() => scrollToBottom(), 50)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [applicationId, scrollToBottom])
+
+  // Скроллим вниз: первый раз instant (без анимации), потом smooth
+  useEffect(() => {
+    if (loading) return
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      // Скролл без анимации внутри чат-блока — страница не прыгает
+      setTimeout(() => scrollToBottom(false), 10)
+      return
+    }
+    scrollToBottom()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
 
   const handleSend = async () => {
@@ -65,16 +110,17 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
       const res = await fetch(`/api/applications/${applicationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text.trim(),
-          sender_type: 'admin',
-        }),
+        body: JSON.stringify({ message: text.trim(), sender_type: 'admin' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка отправки')
-      setMessages(prev => [...prev, data.message])
+      setMessages(prev => {
+        if (prev.some(m => m.id === data.message?.id)) return prev
+        return [...prev, data.message]
+      })
       setText('')
       textareaRef.current?.focus()
+      setTimeout(() => scrollToBottom(), 50)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -110,20 +156,19 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
         <button
           onClick={loadMessages}
           className="p-1.5 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface-variant"
-          title="Обновить"
+          title="Обновить вручную"
         >
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      {/* Messages — overflow только здесь, не на всей странице */}
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {loading && (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="w-5 h-5 animate-spin text-primary/50" />
           </div>
         )}
-
         {!loading && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-on-surface-variant/50">
             <MessageCircle className="w-10 h-10 mb-2 opacity-20" />
@@ -131,7 +176,6 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
             <p className="text-xs mt-1">Напишите первым или дождитесь сообщения от участника</p>
           </div>
         )}
-
         {messages.map(msg => {
           const isAdmin = msg.sender_type === 'admin'
           return (
@@ -147,13 +191,11 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
                 <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
                 <p className={`text-xs mt-1.5 text-right ${isAdmin ? 'text-on-primary/50' : 'text-on-surface-variant/60'}`}>
                   {formatTime(msg.created_at)}
-                  {isAdmin && !msg.is_read && <span className="ml-1">·</span>}
                 </p>
               </div>
             </div>
           )
         })}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
@@ -174,10 +216,7 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
             disabled={sending || !text.trim()}
             className="primary-gradient text-on-primary h-10 w-10 p-0 shrink-0 rounded-xl"
           >
-            {sending
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Send className="w-4 h-4" />
-            }
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
         <p className="text-xs text-on-surface-variant/40 mt-1.5">
