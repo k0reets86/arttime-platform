@@ -202,22 +202,34 @@ export default async function ApplicationsPage({
             </thead>
             <tbody className="divide-y divide-outline-variant/10">
               {(apps ?? []).map((app: any) => (
-                <tr key={app.id} className="hover:bg-surface-container-low transition-colors group">
+                <tr key={app.id} className="hover:bg-surface-container-low transition-colors group cursor-pointer">
                   <td className="px-4 py-3 text-on-surface-variant font-mono text-xs">
-                    {app.performance_number ?? '—'}
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block w-full h-full">
+                      {app.performance_number ?? '—'}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-on-surface">{app.name}</div>
-                    <div className="text-xs text-on-surface-variant">{app.contact_email}</div>
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block">
+                      <div className="font-medium text-on-surface group-hover:text-primary transition-colors">{app.name}</div>
+                      <div className="text-xs text-on-surface-variant">{app.contact_email}</div>
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-on-surface">{getCatName(app.categories)}</div>
-                    <div className="text-xs text-on-surface-variant">{getCatName(app.nominations)}</div>
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block">
+                      <div className="text-on-surface">{getCatName(app.categories)}</div>
+                      <div className="text-xs text-on-surface-variant">{getCatName(app.nominations)}</div>
+                    </Link>
                   </td>
-                  <td className="px-4 py-3">{statusBadge(app.status)}</td>
-                  <td className="px-4 py-3">{paymentBadge(app.payment_status)}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block">{statusBadge(app.status)}</Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block">{paymentBadge(app.payment_status)}</Link>
+                  </td>
                   <td className="px-4 py-3 text-on-surface-variant text-xs">
-                    {new Date(app.created_at).toLocaleDateString('ru')}
+                    <Link href={`/${locale}/admin/applications/${app.id}`} className="block">
+                      {new Date(app.created_at).toLocaleDateString('ru')}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <Link href={`/${locale}/admin/applications/${app.id}`}>

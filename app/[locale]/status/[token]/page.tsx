@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle, Clock, XCircle, ChevronLeft, Copy } from 'lucide-react'
 import PayButton from '@/components/apply/PayButton'
+import ParticipantChat from '@/components/apply/ParticipantChat'
 
 export default async function StatusTokenPage({
   params: { locale, token },
@@ -185,8 +186,14 @@ export default async function StatusTokenPage({
               )}
             </div>
 
+            {/* ── Чат с оргкомитетом ── */}
+            <ParticipantChat
+              applicationId={(application as any).id}
+              participantName={(application as any).contact_name || 'Участник'}
+            />
+
             {/* Back to search */}
-            <div className="text-center">
+            <div className="text-center mt-6">
               <Link
                 href={`/${locale}/status`}
                 className="text-sm text-on-surface-variant hover:text-primary transition-colors"

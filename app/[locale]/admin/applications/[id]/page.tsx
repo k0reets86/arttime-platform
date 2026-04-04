@@ -1,10 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { requireRole } from '@/lib/auth/requireRole'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import ApplicationActions from '@/components/admin/ApplicationActions'
+import ApplicationEditForm from '@/components/admin/ApplicationEditForm'
+import ApplicationChat from '@/components/admin/ApplicationChat'
+import AdminAttention from '@/components/admin/AdminAttention'
 import {
   ChevronLeft, User, Mail, Phone, Globe, MapPin,
   Video, Clock, FileText, Package, CreditCard, Users,
@@ -16,8 +20,9 @@ export default async function ApplicationDetailPage({
 }: {
   params: { locale: string; id: string }
 }) {
-  const { festivalId } = await requireRole(['admin'], locale)
+  const { festivalId, user } = await requireRole(['admin'], locale)
   const supabase = createServerSupabaseClient()
+  const adminClient = createAdminSupabaseClient()
 
   const { data: app } = await supabase
     .from('applications')
@@ -38,6 +43,14 @@ export default async function ApplicationDetailPage({
 
   if (!app) notFound()
 
+  // Список всех администраторов фестиваля для компонента AdminAttention
+  const { data: adminUsers } = await adminClient
+    .from('users')
+    .select('id, display_name, role, email')
+    .eq('festival_id', festivalId!)
+    .eq('active', true)
+    .order('display_name')
+
   const getI18n = (field: Record<string, string> | null, fallback = '—') => {
     if (!field) return fallback
     return field.ru || field.en || Object.values(field)[0] || fallback
@@ -56,7 +69,7 @@ export default async function ApplicationDetailPage({
   )
 
   return (
-    <div className="p-8 space-y-6 max-w-4xl">
+    <div className="p-8 space-y-6 max-w-5xl">
       {/* Back */}
       <Link
         href={`/${locale}/admin/applications`}
@@ -89,17 +102,20 @@ export default async function ApplicationDetailPage({
         />
       </div>
 
+      {/* ═══ ОСНОВНОЙ КОНТЕНТ ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main info */}
+
+        {/* Левая колонка — 2/3 */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Category & Nomination */}
+
+          {/* Категория и номинация */}
           <Section title="Категория и номинация">
             <InfoRow icon={FileText} label="Категория" value={getI18n(app.categories?.name_i18n)} />
             <InfoRow icon={Music} label="Номинация" value={getI18n(app.nominations?.name_i18n)} />
             <InfoRow icon={Users} label="Тип" value={app.applicant_type === 'solo' ? 'Соло' : 'Коллектив'} />
           </Section>
 
-          {/* Contact info */}
+          {/* Контактная информация */}
           <Section title="Контактная информация">
             <InfoRow icon={User} label="Контактное лицо" value={app.contact_name || '—'} />
             <InfoRow icon={Mail} label="Email" value={app.contact_email} />
@@ -108,7 +124,7 @@ export default async function ApplicationDetailPage({
             <InfoRow icon={MapPin} label="Страна / Город" value={`${app.country || '—'} / ${app.city || '—'}`} />
           </Section>
 
-          {/* Performance */}
+          {/* Выступление */}
           <Section title="Выступление">
             <InfoRow icon={Music} label="Название" value={app.performance_title || '—'} />
             <InfoRow
@@ -143,7 +159,7 @@ export default async function ApplicationDetailPage({
             )}
           </Section>
 
-          {/* Members (for groups) */}
+          {/* Участники (для коллективов) */}
           {app.application_members && app.application_members.length > 0 && (
             <Section title={`Участники (${app.application_members.length})`}>
               <div className="space-y-2">
@@ -166,11 +182,35 @@ export default async function ApplicationDetailPage({
               </div>
             </Section>
           )}
+
+          {/* ───── ФОРМА РЕДАКТИРОВАНИЯ ───── */}
+          <ApplicationEditForm
+            applicationId={app.id}
+            initialData={{
+              contact_name: app.contact_name,
+              contact_email: app.contact_email,
+              contact_phone: app.contact_phone,
+              city: app.city,
+              country: app.country,
+              performance_title: app.performance_title,
+              performance_duration_sec: app.performance_duration_sec,
+              video_link: app.video_link,
+              technical_notes: app.technical_notes,
+              admin_notes: app.admin_notes,
+            }}
+          />
+
+          {/* ───── ЧАТ С УЧАСТНИКОМ ───── */}
+          <ApplicationChat
+            applicationId={app.id}
+            currentUserName={(user as any).display_name || 'Администратор'}
+          />
         </div>
 
-        {/* Sidebar */}
+        {/* Правая колонка — сайдбар */}
         <div className="space-y-5">
-          {/* Packages */}
+
+          {/* Пакеты */}
           {app.application_packages && app.application_packages.length > 0 && (
             <Section title="Пакеты">
               <div className="space-y-2">
@@ -193,7 +233,7 @@ export default async function ApplicationDetailPage({
             </Section>
           )}
 
-          {/* Payments */}
+          {/* Платежи */}
           <Section title="Платежи">
             <div className="space-y-2">
               {(app.payments ?? []).length === 0 && (
@@ -222,11 +262,25 @@ export default async function ApplicationDetailPage({
             </div>
           </Section>
 
-          {/* Admin notes */}
-          <Section title="Заметки администратора">
-            <p className="text-sm text-on-surface-variant italic">
-              {app.admin_notes || 'Нет заметок'}
+          {/* ───── НАЗНАЧИТЬ ВНИМАНИЕ АДМИНИСТРАТОРА ───── */}
+          <AdminAttention
+            applicationId={app.id}
+            adminUsers={adminUsers ?? []}
+          />
+
+          {/* Статус заявки — статус-страница для участника */}
+          <Section title="Ссылка участника">
+            <p className="text-xs text-on-surface-variant mb-2">
+              Участник видит свою заявку по этой ссылке:
             </p>
+            <a
+              href={`/${locale}/status/${app.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline break-all"
+            >
+              /status/{app.id}
+            </a>
           </Section>
         </div>
       </div>
