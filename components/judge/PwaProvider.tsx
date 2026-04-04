@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Download, X, Wifi, WifiOff } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Download, X, WifiOff } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -9,6 +10,10 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function PwaProvider() {
+  const pathname = usePathname()
+  // PWA banner and offline UI only relevant for judge/admin users
+  const isJudgeRoute = pathname?.includes('/judge') || pathname?.includes('/admin')
+
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
@@ -38,13 +43,14 @@ export default function PwaProvider() {
       }
     })
 
-    // Install prompt
+    // Install prompt — only capture on judge/admin routes
     const handleInstallPrompt = (e: Event) => {
       e.preventDefault()
       const installEvent = e as BeforeInstallPromptEvent
       setInstallPrompt(installEvent)
-      // Показываем баннер через 3 секунды, если не установлено
-      setTimeout(() => setShowBanner(true), 3000)
+      if (isJudgeRoute) {
+        setTimeout(() => setShowBanner(true), 3000)
+      }
     }
     window.addEventListener('beforeinstallprompt', handleInstallPrompt)
 
@@ -71,6 +77,9 @@ export default function PwaProvider() {
       setShowBanner(false)
     }
   }
+
+  // Nothing to render on public-facing pages
+  if (!isJudgeRoute) return null
 
   return (
     <>
