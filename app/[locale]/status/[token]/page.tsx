@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getTranslations } from 'next-intl/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
@@ -14,9 +14,10 @@ export default async function StatusTokenPage({
   searchParams: { payment?: string }
 }) {
   const t = await getTranslations({ locale, namespace: 'status' })
-  const supabase = createServerSupabaseClient()
+  const supabase = createAdminSupabaseClient()
 
-  // Ищем заявку по ID (UUID) или tracking_token
+  // Ищем заявку по UUID (id). Admin client обходит RLS — безопасно,
+  // т.к. UUID достаточно энтропии чтобы не угадать.
   const { data: application } = await supabase
     .from('applications')
     .select(`
@@ -26,7 +27,7 @@ export default async function StatusTokenPage({
       application_packages(*, packages(*)),
       payments(*)
     `)
-    .or(`id.eq.${token},tracking_token.eq.${token}`)
+    .eq('id', token)
     .single()
 
   const getStatusIcon = (status: string) => {

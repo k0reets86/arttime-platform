@@ -40,9 +40,9 @@ const FILE_LABELS: Record<string, string> = {
 }
 
 const ACCEPTED: Record<string, string> = {
-  photo: 'image/jpeg,image/png',
-  music: 'audio/mpeg,audio/wav,audio/x-wav',
-  doc: 'application/pdf',
+  photo: 'image/jpeg,image/jpg,image/png,image/gif,image/webp,image/heic,image/heif,image/bmp,image/tiff',
+  music: 'audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/aac,audio/ogg,audio/flac,audio/mp4,audio/m4a,audio/x-m4a',
+  doc: 'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx',
 }
 
 const MAX_SIZE_MB: Record<string, number> = {
@@ -166,7 +166,7 @@ export default function Step3Performance({ data, updateData, errors, onFileAdd, 
         <div>
           <Label>Файлы</Label>
           <p className="text-xs text-on-surface-variant mt-0.5">
-            Фото, фонограмма (MP3/WAV), документы (PDF). Макс. 50 MB каждый.
+            Фото (JPG, PNG, WebP, HEIC...), фонограмма (MP3, WAV, AAC, FLAC...), документы (PDF, DOC, DOCX). Макс. 50 MB каждый.
           </p>
         </div>
 

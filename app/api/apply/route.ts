@@ -1,6 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
+// ────────────────────────────────────────────────────────
+// Тарифная сетка участия (должна совпадать с Step4Packages)
+// ────────────────────────────────────────────────────────
+const PARTICIPATION_TIERS = [
+  { max: 1,        price: 100 },
+  { max: 2,        price: 90  },
+  { max: 3,        price: 80  },
+  { max: 4,        price: 70  },
+  { max: 5,        price: 60  },
+  { max: Infinity, price: 50  },
+]
+const OPTION_PRICES = { transfer: 10, accommodation: 50, meals: 20 }
+
+function getPricePerPerson(count: number): number {
+  const tier = PARTICIPATION_TIERS.find(t => count <= t.max)
+  return tier ? tier.price : 50
+}
+
+interface PricingOptions {
+  transfer?: boolean
+  accommodation?: boolean
+  meals?: boolean
+}
+
 interface ApplyBody {
   festivalId: string
   applicantType: 'solo' | 'group'
@@ -18,7 +42,9 @@ interface ApplyBody {
   performanceDurationSec: number
   videoLink?: string
   notes?: string
-  selectedPackages: Array<{ packageId: string; quantity: number }>
+  pricingOptions?: PricingOptions
+  // legacy — игнорируем, считаем сами
+  selectedPackages?: unknown[]
 }
 
 export async function POST(req: NextRequest) {
@@ -56,7 +82,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Registration is closed' }, { status: 403 })
     }
 
-    // Create application
+    // ── Рассчитываем стоимость ──────────────────────────
+    const members = body.members?.filter(m => m.full_name.trim()) ?? []
+    const participantCount = body.applicantType === 'solo' ? 1 : Math.max(1, members.length)
+    const pricePerPerson = getPricePerPerson(participantCount)
+    const opts = body.pricingOptions ?? {}
+
+    const baseAmount = pricePerPerson * participantCount
+    const transferAmount = opts.transfer ? OPTION_PRICES.transfer * participantCount : 0
+    const accommodationAmount = opts.accommodation ? OPTION_PRICES.accommodation * participantCount : 0
+    const mealsAmount = opts.meals ? OPTION_PRICES.meals * participantCount : 0
+    const totalAmount = baseAmount + transferAmount + accommodationAmount + mealsAmount
+
+    // ── Create application ──────────────────────────────
     const { data: application, error: appErr } = await supabase
       .from('applications')
       .insert({
@@ -76,7 +114,7 @@ export async function POST(req: NextRequest) {
         video_link: body.videoLink ?? null,
         notes: body.notes ?? null,
         status: 'submitted',
-        payment_status: body.selectedPackages.length > 0 ? 'pending' : 'free',
+        payment_status: totalAmount > 0 ? 'pending' : 'free',
       })
       .select()
       .single()
@@ -87,103 +125,110 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert members (for groups)
-    if (body.members && body.members.length > 0) {
-      const membersData = body.members
-        .filter(m => m.full_name.trim())
-        .map(m => ({
-          application_id: application.id,
-          full_name: m.full_name,
-          birth_date: m.birth_date || null,
-          role: m.role || null,
-        }))
-
-      if (membersData.length > 0) {
-        await supabase.from('application_members').insert(membersData)
-      }
-    }
-
-    // Insert selected packages
-    if (body.selectedPackages.length > 0) {
-      const packagesData = body.selectedPackages.map(sp => ({
+    if (members.length > 0) {
+      const membersData = members.map(m => ({
         application_id: application.id,
-        package_id: sp.packageId,
-        quantity: sp.quantity,
+        full_name: m.full_name,
+        birth_date: m.birth_date || null,
+        role: m.role || null,
       }))
-      await supabase.from('application_packages').insert(packagesData)
+      await supabase.from('application_members').insert(membersData)
     }
 
-    // Create payment record if packages selected
+    // ── Payment & Stripe ────────────────────────────────
     let checkoutUrl: string | null = null
-    if (body.selectedPackages.length > 0) {
-      // Fetch package prices for total
-      const { data: packages } = await supabase
-        .from('packages')
-        .select('id, price, currency')
-        .in('id', body.selectedPackages.map(sp => sp.packageId))
 
-      if (packages && packages.length > 0) {
-        const totalAmount = body.selectedPackages.reduce((sum, sp) => {
-          const pkg = packages.find(p => p.id === sp.packageId)
-          return sum + (pkg ? pkg.price * sp.quantity : 0)
-        }, 0)
+    if (totalAmount > 0) {
+      // Create pending payment record
+      const { data: payment } = await supabase
+        .from('payments')
+        .insert({
+          application_id: application.id,
+          amount: totalAmount,
+          currency: 'EUR',
+          type: 'registration',
+          status: 'pending',
+        })
+        .select()
+        .single()
 
-        // Create pending payment record
-        const { data: payment } = await supabase
-          .from('payments')
-          .insert({
-            application_id: application.id,
-            amount: totalAmount,
-            currency: packages[0].currency,
-            type: 'registration',
-            status: 'pending',
-          })
-          .select()
-          .single()
+      // Try to create Stripe checkout session
+      if (process.env.STRIPE_SECRET_KEY && payment) {
+        try {
+          const stripe = await import('stripe')
+          const stripeClient = new stripe.default(process.env.STRIPE_SECRET_KEY)
+          const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+          const locale = body.langPref ?? 'ru'
 
-        // Try to create Stripe checkout session
-        if (process.env.STRIPE_SECRET_KEY && payment) {
-          try {
-            const stripe = await import('stripe')
-            const stripeClient = new stripe.default(process.env.STRIPE_SECRET_KEY)
-            const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+          // Формируем позиции для Stripe
+          const lineItems = []
 
-            const lineItems = await Promise.all(
-              body.selectedPackages.map(async (sp) => {
-                const pkg = packages.find(p => p.id === sp.packageId)
-                return {
-                  price_data: {
-                    currency: (pkg?.currency ?? 'eur').toLowerCase(),
-                    product_data: { name: `Package - ${sp.packageId}` },
-                    unit_amount: Math.round((pkg?.price ?? 0) * 100),
-                  },
-                  quantity: sp.quantity,
-                }
-              })
-            )
-
-            const session = await stripeClient.checkout.sessions.create({
-              mode: 'payment',
-              line_items: lineItems,
-              success_url: `${origin}/ru/status?id=${application.id}&payment=success`,
-              cancel_url: `${origin}/ru/apply?cancelled=1`,
-              metadata: {
-                application_id: application.id,
-                payment_id: payment.id,
+          lineItems.push({
+            price_data: {
+              currency: 'eur',
+              product_data: {
+                name: `Участие / Participation (${participantCount} × ${pricePerPerson}€)`,
               },
-              client_reference_id: application.id,
+              unit_amount: pricePerPerson * 100,
+            },
+            quantity: participantCount,
+          })
+
+          if (opts.transfer) {
+            lineItems.push({
+              price_data: {
+                currency: 'eur',
+                product_data: { name: `Трансфер из Дортмунда / Transfer from Dortmund` },
+                unit_amount: OPTION_PRICES.transfer * 100,
+              },
+              quantity: participantCount,
             })
-
-            // Update payment with Stripe PI ID
-            await supabase
-              .from('payments')
-              .update({ stripe_payment_intent_id: session.payment_intent as string })
-              .eq('id', payment.id)
-
-            checkoutUrl = session.url
-          } catch (stripeErr) {
-            console.error('Stripe error (non-fatal):', stripeErr)
-            // Application is still created, user can pay later
           }
+
+          if (opts.accommodation) {
+            lineItems.push({
+              price_data: {
+                currency: 'eur',
+                product_data: { name: `Проживание / Accommodation` },
+                unit_amount: OPTION_PRICES.accommodation * 100,
+              },
+              quantity: participantCount,
+            })
+          }
+
+          if (opts.meals) {
+            lineItems.push({
+              price_data: {
+                currency: 'eur',
+                product_data: { name: `Питание / Meals` },
+                unit_amount: OPTION_PRICES.meals * 100,
+              },
+              quantity: participantCount,
+            })
+          }
+
+          const session = await stripeClient.checkout.sessions.create({
+            mode: 'payment',
+            line_items: lineItems,
+            success_url: `${origin}/${locale}/status/${application.id}?payment=success`,
+            cancel_url: `${origin}/${locale}/apply?cancelled=1`,
+            metadata: {
+              application_id: application.id,
+              payment_id: payment.id,
+            },
+            client_reference_id: application.id,
+          })
+
+          // Update payment with Stripe session ID
+          await supabase
+            .from('payments')
+            .update({ stripe_payment_intent_id: session.id })
+            .eq('id', payment.id)
+
+          checkoutUrl = session.url
+        } catch (stripeErr) {
+          console.error('Stripe error (non-fatal):', stripeErr)
+          // Application is still created, user can pay later
         }
       }
     }
@@ -198,6 +243,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       applicationId: application.id,
       checkoutUrl,
+      totalAmount,
     })
   } catch (error) {
     console.error('Apply API error:', error)

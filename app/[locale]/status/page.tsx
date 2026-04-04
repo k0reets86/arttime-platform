@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getTranslations } from 'next-intl/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +25,7 @@ export default async function StatusPage({
 
   let application = null
   if (searchParams.email) {
-    const supabase = createServerSupabaseClient()
+    const supabase = createAdminSupabaseClient()
     const { data } = await supabase
       .from('applications')
       .select(`

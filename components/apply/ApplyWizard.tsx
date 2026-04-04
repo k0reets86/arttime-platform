@@ -22,6 +22,12 @@ export interface FileInfo {
   size: number
 }
 
+export interface PricingOptions {
+  transfer: boolean
+  accommodation: boolean
+  meals: boolean
+}
+
 export interface WizardData {
   // Step 1
   applicantType: 'solo' | 'group' | ''
@@ -43,7 +49,8 @@ export interface WizardData {
   videoLink: string
   notes: string
   fileInfos: FileInfo[]
-  // Step 4
+  // Step 4 — pricing
+  pricingOptions: PricingOptions
   selectedPackages: Array<{ packageId: string; quantity: number }>
   // Step 5 — set after Stripe redirect
   applicationId: string
@@ -67,6 +74,7 @@ const INITIAL_DATA: WizardData = {
   videoLink: '',
   notes: '',
   fileInfos: [],
+  pricingOptions: { transfer: false, accommodation: false, meals: false },
   selectedPackages: [],
   applicationId: '',
 }

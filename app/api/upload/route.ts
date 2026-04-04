@@ -12,15 +12,32 @@ const ALLOWED_TYPES: Record<string, string> = {
   'video/mp4': 'video',
   'video/quicktime': 'video',
   'video/x-msvideo': 'video',
+  'video/webm': 'video',
   // Фото
   'image/jpeg': 'photo',
+  'image/jpg': 'photo',
   'image/png': 'photo',
+  'image/gif': 'photo',
+  'image/webp': 'photo',
+  'image/heic': 'photo',
+  'image/heif': 'photo',
+  'image/bmp': 'photo',
+  'image/tiff': 'photo',
   // Музыка
   'audio/mpeg': 'music',
+  'audio/mp3': 'music',
   'audio/wav': 'music',
   'audio/x-wav': 'music',
+  'audio/aac': 'music',
+  'audio/ogg': 'music',
+  'audio/flac': 'music',
+  'audio/mp4': 'music',
+  'audio/m4a': 'music',
+  'audio/x-m4a': 'music',
   // Документы
   'application/pdf': 'doc',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'doc',
 }
 
 export async function POST(req: NextRequest) {
@@ -40,7 +57,7 @@ export async function POST(req: NextRequest) {
     const detectedType = ALLOWED_TYPES[file.type]
     if (!detectedType) {
       return NextResponse.json({
-        error: `Недопустимый тип файла: ${file.type}. Разрешены: mp4, mov, avi, jpg, png, mp3, wav, pdf`
+        error: `Недопустимый тип файла: ${file.type}. Разрешены: mp4, mov, jpg, png, gif, webp, heic, mp3, wav, aac, flac, ogg, pdf, doc, docx`
       }, { status: 400 })
     }
 
