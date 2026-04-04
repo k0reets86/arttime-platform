@@ -8,6 +8,7 @@ import ApplicationActions from '@/components/admin/ApplicationActions'
 import ApplicationEditForm from '@/components/admin/ApplicationEditForm'
 import ApplicationChat from '@/components/admin/ApplicationChat'
 import AdminAttention from '@/components/admin/AdminAttention'
+import PaymentAdminPanel from '@/components/admin/PaymentAdminPanel'
 import {
   ChevronLeft, User, Mail, Phone, Globe, MapPin,
   Video, Clock, FileText, Users,
@@ -232,31 +233,13 @@ export default async function ApplicationDetailPage({
 
           {/* Платежи */}
           <Section title="Платежи">
-            <div className="space-y-2">
-              {(app.payments ?? []).length === 0 && (
-                <p className="text-sm text-on-surface-variant">Нет платежей</p>
-              )}
-              {(app.payments ?? []).map((pay: any) => (
-                <div key={pay.id} className="p-2.5 bg-surface-container-low rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <Badge variant={pay.status === 'paid' ? 'success' : 'warning'}>
-                      {pay.status === 'paid' ? 'Оплачено' : pay.status}
-                    </Badge>
-                    <span className="font-medium text-sm text-on-surface">
-                      {pay.amount} {pay.currency?.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-xs text-on-surface-variant mt-1">
-                    {pay.provider} · {new Date(pay.created_at).toLocaleDateString('ru')}
-                  </p>
-                  {pay.stripe_payment_intent_id && (
-                    <p className="text-xs text-on-surface-variant font-mono mt-0.5 truncate">
-                      {pay.stripe_payment_intent_id}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
+            <PaymentAdminPanel
+              applicationId={app.id}
+              appStatus={app.status}
+              paymentStatus={app.payment_status}
+              payments={(app.payments ?? []) as any[]}
+              locale={locale}
+            />
           </Section>
 
           {/* ───── НАЗНАЧИТЬ ВНИМАНИЕ АДМИНИСТРАТОРА ───── */}
