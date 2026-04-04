@@ -23,10 +23,11 @@ export default async function JudgesPage({
     .order('created_at', { ascending: false })
 
   // Load nominations for assignment dropdown
+  // Nominations don't have festival_id — filter via categories join
   const { data: nominations } = await supabase
     .from('nominations')
-    .select('id, name_i18n, categories(id, name_i18n)')
-    .eq('festival_id', festivalId!)
+    .select('id, name_i18n, categories!inner(id, name_i18n, festival_id)')
+    .eq('categories.festival_id', festivalId!)
     .eq('active', true)
     .order('sort_order')
 
