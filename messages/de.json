@@ -109,7 +109,17 @@
     "back": "Zurück",
     "next": "Weiter",
     "registration_closed_title": "Anmeldung geschlossen",
-    "registration_closed_desc": "Bewerbungen werden derzeit nicht entgegengenommen. Verfolgen Sie die Festival-Neuigkeiten."
+    "registration_closed_desc": "Bewerbungen werden derzeit nicht entgegengenommen. Verfolgen Sie die Festival-Neuigkeiten.",
+    "portal_badge": "Künstlerportal",
+    "portal_headline_1": "Bühnen-",
+    "portal_headline_2": "Anmeldung",
+    "portal_desc": "Füllen Sie Ihre Auftrittsdaten aus und zahlen Sie die Anmeldegebühr zur Festivalteilnahme.",
+    "step_label": "Schritt",
+    "help_title": "Brauchen Sie Hilfe?",
+    "help_desc": "Unser Team beantwortet gerne alle Fragen zu Ihrer Bewerbung.",
+    "help_link": "Schreiben Sie uns",
+    "solo_desc": "Soloauftritt — eine einzige Person tritt auf.",
+    "group_desc": "Gruppe — Ensemble, Duo, Orchester oder Tanzgruppe."
   },
   "status": {
     "draft": "Entwurf",

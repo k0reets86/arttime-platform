@@ -109,7 +109,17 @@
     "back": "Back",
     "next": "Next",
     "registration_closed_title": "Registration Closed",
-    "registration_closed_desc": "Applications are not being accepted at this time. Follow festival news for updates."
+    "registration_closed_desc": "Applications are not being accepted at this time. Follow festival news for updates.",
+    "portal_badge": "Artist Portal",
+    "portal_headline_1": "Stage",
+    "portal_headline_2": "Registration",
+    "portal_desc": "Fill in your performance details and pay the registration fee to take part in the festival.",
+    "step_label": "Step",
+    "help_title": "Need Help?",
+    "help_desc": "Our team is ready to answer any questions about your application.",
+    "help_link": "Contact Us",
+    "solo_desc": "Solo performance — a single artist performing alone.",
+    "group_desc": "Group — ensemble, duo, orchestra or dance company."
   },
   "status": {
     "draft": "Draft",

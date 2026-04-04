@@ -193,13 +193,13 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
           {/* Title block */}
           <div className="space-y-4">
             <span className="inline-block px-4 py-1.5 bg-secondary-container text-on-secondary-container text-xs font-black uppercase tracking-widest rounded-full">
-              Портал участника
+              {t('portal_badge')}
             </span>
             <h1 className="font-headline text-5xl font-black tracking-tight leading-none text-on-surface">
-              Подача <span className="text-primary">заявки</span>
+              {t('portal_headline_1')} <span className="text-primary">{t('portal_headline_2')}</span>
             </h1>
             <p className="text-on-surface-variant text-base leading-relaxed max-w-sm">
-              Заполните данные о выступлении и оплатите регистрационный взнос для участия в фестивале.
+              {t('portal_desc')}
             </p>
           </div>
 
@@ -243,7 +243,7 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
                     <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${
                       isActive ? 'text-primary' : 'text-on-surface-variant'
                     }`}>
-                      Шаг {idx}
+                      {t('step_label')} {idx}
                     </p>
                     <p className="font-headline font-bold text-base text-on-surface">{s.label}</p>
                   </div>
@@ -255,15 +255,15 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
           {/* Help card */}
           <div className="p-6 bg-primary/5 rounded-2xl border border-primary/10 space-y-3">
             <HelpCircle className="text-primary w-7 h-7" />
-            <h3 className="font-headline font-bold text-lg text-on-surface">Нужна помощь?</h3>
+            <h3 className="font-headline font-bold text-lg text-on-surface">{t('help_title')}</h3>
             <p className="text-on-surface-variant text-sm leading-relaxed">
-              Наша команда готова ответить на все вопросы по оформлению заявки.
+              {t('help_desc')}
             </p>
             <a
               href="mailto:support@arttime.com"
               className="inline-flex items-center gap-2 font-bold text-primary hover:text-primary-dim transition-colors text-sm"
             >
-              Написать нам
+              {t('help_link')}
               <ArrowRight className="w-4 h-4" />
             </a>
           </div>

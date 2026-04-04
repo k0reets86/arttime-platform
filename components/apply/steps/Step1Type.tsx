@@ -73,13 +73,13 @@ export default function Step1Type({ data, updateData, errors, locale }: Props) {
               type: 'solo' as const,
               Icon: User,
               title: t('solo'),
-              desc: 'Одиночное выступление — сольный номер одного артиста.',
+              desc: t('solo_desc'),
             },
             {
               type: 'group' as const,
               Icon: Users,
               title: t('group'),
-              desc: 'Коллектив — ансамбль, дуэт, оркестр или танцевальная группа.',
+              desc: t('group_desc'),
             },
           ]).map(({ type, Icon, title, desc }) => (
             <button
