@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { requireRole } from '@/lib/auth/requireRole'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -21,10 +20,9 @@ export default async function ApplicationDetailPage({
   params: { locale: string; id: string }
 }) {
   const { festivalId, user } = await requireRole(['admin'], locale)
-  const supabase = createServerSupabaseClient()
   const adminClient = createAdminSupabaseClient()
 
-  const { data: app } = await supabase
+  const { data: app } = await adminClient
     .from('applications')
     .select(`
       *,
