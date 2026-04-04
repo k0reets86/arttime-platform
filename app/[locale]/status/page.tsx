@@ -116,12 +116,20 @@ export default async function StatusPage({
                     {(application as any).performance_title || '—'}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
-                  <Badge variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'} className="mt-1">
-                    {t(`payment_${(application as any).payment_status}` as any)}
-                  </Badge>
-                </div>
+                {/* Статус оплаты — НЕ показываем для отклонённых */}
+                {(application as any).status !== 'rejected' && (
+                  <div>
+                    <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
+                    <Badge
+                      variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'}
+                      className="mt-1"
+                    >
+                      {(application as any).payment_status === 'paid'
+                        ? t('payment_paid')
+                        : t('payment_pending')}
+                    </Badge>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('submitted_at')}</p>
                   <p className="text-sm text-on-surface">

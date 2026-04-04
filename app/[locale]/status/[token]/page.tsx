@@ -4,8 +4,8 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Clock, XCircle, ChevronLeft, Copy } from 'lucide-react'
-import PayButton from '@/components/apply/PayButton'
+import { CheckCircle, Clock, XCircle, ChevronLeft } from 'lucide-react'
+import PaymentSection from '@/components/apply/PaymentSection'
 import ParticipantChat from '@/components/apply/ParticipantChat'
 
 export default async function StatusTokenPage({
@@ -18,17 +18,26 @@ export default async function StatusTokenPage({
   const t = await getTranslations({ locale, namespace: 'status' })
   const supabase = createAdminSupabaseClient()
 
-  const { data: application } = await supabase
-    .from('applications')
-    .select(`
-      *,
-      categories(name_i18n),
-      nominations(name_i18n),
-      application_packages(*, packages(*)),
-      payments(id, amount, currency, status)
-    `)
-    .eq('id', token)
-    .single()
+  const [{ data: application }, { data: festival }] = await Promise.all([
+    supabase
+      .from('applications')
+      .select(`
+        *,
+        categories(name_i18n),
+        nominations(name_i18n),
+        payments(id, amount, currency, status)
+      `)
+      .eq('id', token)
+      .single(),
+    supabase
+      .from('festivals')
+      .select('settings_json')
+      .limit(1)
+      .single(),
+  ])
+
+  const bankDetails = (festival as any)?.settings_json?.bank ?? null
+  const registrationFee = (festival as any)?.settings_json?.registration_fee ?? null
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -47,14 +56,12 @@ export default async function StatusTokenPage({
     }
   }
 
-  // Проверяем, нужна ли кнопка оплаты
-  const needsPayment = application
-    && (application as any).status === 'approved'
-    && (application as any).payment_status === 'pending'
-
-  const pendingPayment = needsPayment
-    ? ((application as any).payments ?? []).find((p: any) => p.status === 'pending')
-    : null
+  const appStatus    = (application as any)?.status
+  const payStatus    = (application as any)?.payment_status
+  const isApproved   = appStatus === 'approved'
+  const isRejected   = appStatus === 'rejected'
+  const isPaid       = payStatus === 'paid'
+  const needsPayment = isApproved && !isPaid
 
   return (
     <main className="min-h-screen bg-surface">
@@ -72,7 +79,7 @@ export default async function StatusTokenPage({
         </h1>
         <p className="text-on-surface-variant text-center mb-8">{t('subtitle')}</p>
 
-        {/* Payment success banner */}
+        {/* Оплата прошла успешно */}
         {searchParams.payment === 'success' && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
             <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
@@ -82,32 +89,41 @@ export default async function StatusTokenPage({
 
         {application ? (
           <div className="space-y-4">
-            {/* ── Банер одобрения + оплата ── */}
-            {(application as any).status === 'approved' && (application as any).payment_status !== 'paid' && (
-              <div className="p-5 bg-green-50 border border-green-200 rounded-xl space-y-3">
+
+            {/* ── Баннер: заявка одобрена + выбор оплаты ── */}
+            {isApproved && !isPaid && (
+              <div className="p-5 bg-green-50 border border-green-200 rounded-xl space-y-4">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                   <p className="font-semibold text-green-800">Заявка одобрена!</p>
                 </div>
                 <p className="text-sm text-green-700">
                   Для подтверждения участия необходимо оплатить регистрационный взнос.
                 </p>
-                {pendingPayment && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-800">
-                      Сумма: <strong>{pendingPayment.amount} {pendingPayment.currency}</strong>
-                    </span>
-                    <PayButton applicationId={(application as any).id} />
-                  </div>
-                )}
+                <PaymentSection
+                  applicationId={(application as any).id}
+                  amount={registrationFee?.amount}
+                  currency={registrationFee?.currency ?? 'EUR'}
+                  bankDetails={bankDetails}
+                />
               </div>
             )}
 
-            {/* ── Банер оплачено ── */}
-            {(application as any).payment_status === 'paid' && (
+            {/* ── Баннер: оплачено ── */}
+            {isPaid && (
               <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
                 <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
                 <p className="text-green-700 text-sm font-medium">Оплата получена. Участие подтверждено!</p>
+              </div>
+            )}
+
+            {/* ── Баннер: отклонено ── */}
+            {isRejected && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+                <XCircle className="w-5 h-5 text-red-500 shrink-0" />
+                <p className="text-red-700 text-sm">
+                  К сожалению, ваша заявка была отклонена. По вопросам обращайтесь к организаторам через чат ниже.
+                </p>
               </div>
             )}
 
@@ -124,9 +140,9 @@ export default async function StatusTokenPage({
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {getStatusIcon((application as any).status)}
-                  <Badge variant={getStatusVariant((application as any).status)}>
-                    {t(`status_${(application as any).status}` as any)}
+                  {getStatusIcon(appStatus)}
+                  <Badge variant={getStatusVariant(appStatus)}>
+                    {t(`status_${appStatus}` as any)}
                   </Badge>
                 </div>
               </div>
@@ -139,15 +155,20 @@ export default async function StatusTokenPage({
                     {(application as any).performance_title || '—'}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
-                  <Badge
-                    variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'}
-                    className="mt-1"
-                  >
-                    {t(`payment_${(application as any).payment_status}` as any)}
-                  </Badge>
-                </div>
+
+                {/* Статус оплаты — НЕ показываем для отклонённых */}
+                {!isRejected && (
+                  <div>
+                    <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
+                    <Badge
+                      variant={isPaid ? 'success' : needsPayment ? 'warning' : 'secondary'}
+                      className="mt-1"
+                    >
+                      {isPaid ? t('payment_paid') : t('payment_pending')}
+                    </Badge>
+                  </div>
+                )}
+
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('submitted_at')}</p>
                   <p className="text-sm text-on-surface">
@@ -156,21 +177,21 @@ export default async function StatusTokenPage({
                 </div>
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('id')}</p>
-                  {/* Полный ID — для поиска */}
                   <p className="text-xs text-on-surface-variant font-mono break-all leading-relaxed">
                     {(application as any).id}
                   </p>
                 </div>
               </div>
 
-              {/* Nomination + Category */}
+              {/* Категория + Номинация */}
               {((application as any).nominations || (application as any).categories) && (
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant/10">
                   {(application as any).categories && (
                     <div>
                       <p className="text-xs text-on-surface-variant">Категория</p>
                       <p className="text-sm text-on-surface font-medium">
-                        {(application as any).categories?.name_i18n?.ru || '—'}
+                        {(application as any).categories?.name_i18n?.[locale] ||
+                         (application as any).categories?.name_i18n?.ru || '—'}
                       </p>
                     </div>
                   )}
@@ -178,7 +199,8 @@ export default async function StatusTokenPage({
                     <div>
                       <p className="text-xs text-on-surface-variant">Номинация</p>
                       <p className="text-sm text-on-surface font-medium">
-                        {(application as any).nominations?.name_i18n?.ru || '—'}
+                        {(application as any).nominations?.name_i18n?.[locale] ||
+                         (application as any).nominations?.name_i18n?.ru || '—'}
                       </p>
                     </div>
                   )}
@@ -192,7 +214,6 @@ export default async function StatusTokenPage({
               participantName={(application as any).contact_name || 'Участник'}
             />
 
-            {/* Back to search */}
             <div className="text-center mt-6">
               <Link
                 href={`/${locale}/status`}
@@ -203,7 +224,6 @@ export default async function StatusTokenPage({
             </div>
           </div>
         ) : (
-          /* Not found */
           <div className="mt-8 text-center space-y-4 bg-surface-container-lowest rounded-xl p-8 shadow-radiant">
             <div className="w-16 h-16 rounded-2xl bg-surface-container-high mx-auto flex items-center justify-center">
               <XCircle className="w-8 h-8 text-on-surface-variant" />
