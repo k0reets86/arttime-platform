@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   FileText, Users, CheckCircle, Clock, XCircle,
-  TrendingUp, CreditCard, ChevronRight
+  TrendingUp, CreditCard, ChevronRight, AlertTriangle, Webhook
 } from 'lucide-react'
 
 interface StatCardProps {
@@ -70,6 +70,17 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     .order('created_at', { ascending: false })
     .limit(8)
 
+  // Webhook health: failed webhooks in last 24h
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { data: failedWebhooks, count: failedWebhookCount } = await supabase
+    .from('webhook_logs')
+    .select('id, event_type, error_message, created_at', { count: 'exact' })
+    .eq('festival_id', festivalId!)
+    .eq('status', 'failed')
+    .gte('created_at', since24h)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
   const statusBadge = (status: string) => {
     const map: Record<string, 'default' | 'success' | 'destructive' | 'warning' | 'secondary' | 'outline'> = {
       submitted: 'default',
@@ -114,6 +125,42 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         <StatCard label="Судей" value={totalJudges ?? 0} icon={Users} href={`/${locale}/admin/judges`} />
         <StatCard label="Оплачено" value={paidApps ?? 0} icon={CreditCard} color="text-emerald-500" />
       </div>
+
+      {/* Webhook health alert */}
+      {(failedWebhookCount ?? 0) > 3 && (
+        <div className="rounded-xl border-2 border-red-300 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-headline font-bold text-red-700">
+                  ⚠ Проблемы с вебхуками ({failedWebhookCount} ошибок за 24ч)
+                </p>
+                <Webhook className="w-4 h-4 text-red-500" />
+              </div>
+              <p className="text-sm text-red-600 mb-3">
+                Обнаружено более 3 сбоев вебхуков за последние 24 часа.
+                Проверьте настройки Stripe Webhook и правильность STRIPE_WEBHOOK_SECRET.
+              </p>
+              {failedWebhooks && failedWebhooks.length > 0 && (
+                <div className="space-y-1.5">
+                  {failedWebhooks.map((wh: any) => (
+                    <div key={wh.id} className="flex items-start gap-2 text-xs bg-red-100 rounded-lg px-3 py-2">
+                      <span className="font-mono text-red-700 font-medium">{wh.event_type}</span>
+                      <span className="text-red-500 flex-1 truncate">{wh.error_message ?? 'Unknown error'}</span>
+                      <span className="text-red-400 shrink-0">
+                        {new Date(wh.created_at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent applications */}
       <div className="bg-surface-container-lowest rounded-xl shadow-radiant overflow-hidden">

@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import FestivalSettingsForm from '@/components/admin/FestivalSettingsForm'
 import CategoriesEditor from '@/components/admin/CategoriesEditor'
 import PackagesEditor from '@/components/admin/PackagesEditor'
+import DiplomaTemplateEditor from '@/components/admin/DiplomaTemplateEditor'
+import SettingsTabs from '@/components/admin/SettingsTabs'
 
 export default async function SettingsPage({
   params: { locale },
@@ -18,12 +20,14 @@ export default async function SettingsPage({
     { data: nominations },
     { data: criteria },
     { data: packages },
+    { data: diplomaTemplate },
   ] = await Promise.all([
     supabase.from('festivals').select('*').eq('id', festivalId!).single(),
     supabase.from('categories').select('*').eq('festival_id', festivalId!).order('sort_order'),
     supabase.from('nominations').select('*').eq('festival_id', festivalId!).order('sort_order'),
     supabase.from('criteria').select('*').eq('festival_id', festivalId!).order('sort_order'),
     supabase.from('packages').select('*').eq('festival_id', festivalId!).order('sort_order'),
+    supabase.from('diploma_templates').select('*').eq('festival_id', festivalId!).maybeSingle(),
   ])
 
   return (
@@ -31,27 +35,19 @@ export default async function SettingsPage({
       <div>
         <h1 className="font-headline text-3xl font-bold text-on-surface">Настройки</h1>
         <p className="text-on-surface-variant mt-1">
-          Управление фестивалем, категориями, номинациями и пакетами
+          Управление фестивалем, категориями, номинациями, пакетами и шаблонами дипломов
         </p>
       </div>
 
-      {/* Festival settings */}
-      <FestivalSettingsForm festival={festival} locale={locale} />
-
-      {/* Categories & Nominations */}
-      <CategoriesEditor
+      <SettingsTabs
         festivalId={festivalId!}
+        locale={locale}
+        festival={festival}
         categories={categories ?? []}
         nominations={nominations ?? []}
         criteria={criteria ?? []}
-        locale={locale}
-      />
-
-      {/* Packages */}
-      <PackagesEditor
-        festivalId={festivalId!}
         packages={packages ?? []}
-        locale={locale}
+        diplomaTemplate={diplomaTemplate ?? null}
       />
     </div>
   )

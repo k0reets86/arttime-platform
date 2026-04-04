@@ -11,7 +11,7 @@ export default async function CashierPage({
   const { festivalId, user } = await requireRole(['cashier', 'admin'], locale)
   const supabase = createServerSupabaseClient()
 
-  // Applications needing payment
+  // Applications needing payment (for Search tab)
   const { data: unpaidApps } = await supabase
     .from('applications')
     .select(`
@@ -27,7 +27,7 @@ export default async function CashierPage({
     .in('payment_status', ['pending', 'partial'])
     .order('created_at', { ascending: false })
 
-  // Recent payments
+  // Recent payments (for Balance tab)
   const { data: recentPayments } = await supabase
     .from('payments')
     .select(`
@@ -36,28 +36,27 @@ export default async function CashierPage({
     `)
     .eq('festival_id', festivalId!)
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(100)
 
-  // Stats
-  const [
-    { data: totalPaid },
-    { data: totalPending },
-  ] = await Promise.all([
-    supabase.rpc('sum_payments', { p_festival_id: festivalId!, p_status: 'paid' }).select(),
-    supabase.from('payments').select('id', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'pending'),
-  ])
+  // Ticket types (packages) for the sell-ticket tab
+  const { data: ticketTypes } = await supabase
+    .from('packages')
+    .select('id, name_i18n, price, description_i18n')
+    .eq('festival_id', festivalId!)
+    .order('sort_order')
 
   return (
     <div className="p-8 space-y-6">
       <div>
         <h1 className="font-headline text-3xl font-bold text-on-surface">Касса</h1>
-        <p className="text-on-surface-variant mt-1">Регистрация платежей и управление оплатами</p>
+        <p className="text-on-surface-variant mt-1">Продажа билетов, дневной баланс и поиск участников</p>
       </div>
       <CashierApp
         festivalId={festivalId!}
-        cashierName={user.display_name || user.email}
-        unpaidApps={unpaidApps ?? []}
+        cashierName={(user as any).display_name || (user as any).email}
+        unpaidApps={(unpaidApps ?? []) as any[]}
         recentPayments={(recentPayments ?? []) as any[]}
+        ticketTypes={(ticketTypes ?? []) as any[]}
         locale={locale}
       />
     </div>

@@ -6,6 +6,7 @@ import {
   Download, FileSpreadsheet, Trophy, Star,
   Users, Calendar, FileText, ExternalLink
 } from 'lucide-react'
+import PdfReportsPanel from '@/components/admin/PdfReportsPanel'
 
 export default async function ReportsPage({
   params: { locale },
@@ -21,12 +22,14 @@ export default async function ReportsPage({
     { count: totalScores },
     { count: publishedResults },
     { count: programSlots },
+    { data: nominations },
   ] = await Promise.all([
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'approved'),
     supabase.from('scores').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('aggregates').select('*', { count: 'exact', head: true }).not('published_globally_at', 'is', null),
     supabase.from('program').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
+    supabase.from('nominations').select('id, name_i18n').eq('festival_id', festivalId!).order('sort_order'),
   ])
 
   const exports = [
@@ -186,6 +189,13 @@ export default async function ReportsPage({
           </Button>
         </div>
       </div>
+
+      {/* PDF Reports */}
+      <PdfReportsPanel
+        locale={locale}
+        festivalId={festivalId!}
+        nominations={(nominations ?? []) as any[]}
+      />
     </div>
   )
 }
