@@ -4,7 +4,8 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Clock, XCircle, ChevronLeft } from 'lucide-react'
+import { CheckCircle, Clock, XCircle, ChevronLeft, Copy } from 'lucide-react'
+import PayButton from '@/components/apply/PayButton'
 
 export default async function StatusTokenPage({
   params: { locale, token },
@@ -16,8 +17,6 @@ export default async function StatusTokenPage({
   const t = await getTranslations({ locale, namespace: 'status' })
   const supabase = createAdminSupabaseClient()
 
-  // Ищем заявку по UUID (id). Admin client обходит RLS — безопасно,
-  // т.к. UUID достаточно энтропии чтобы не угадать.
   const { data: application } = await supabase
     .from('applications')
     .select(`
@@ -25,7 +24,7 @@ export default async function StatusTokenPage({
       categories(name_i18n),
       nominations(name_i18n),
       application_packages(*, packages(*)),
-      payments(*)
+      payments(id, amount, currency, status)
     `)
     .eq('id', token)
     .single()
@@ -34,7 +33,7 @@ export default async function StatusTokenPage({
     switch (status) {
       case 'approved': return <CheckCircle className="w-5 h-5 text-green-500" />
       case 'rejected': return <XCircle className="w-5 h-5 text-red-500" />
-      default: return <Clock className="w-5 h-5 text-primary" />
+      default:         return <Clock className="w-5 h-5 text-primary" />
     }
   }
 
@@ -46,6 +45,15 @@ export default async function StatusTokenPage({
       default: return 'secondary'
     }
   }
+
+  // Проверяем, нужна ли кнопка оплаты
+  const needsPayment = application
+    && (application as any).status === 'approved'
+    && (application as any).payment_status === 'pending'
+
+  const pendingPayment = needsPayment
+    ? ((application as any).payments ?? []).find((p: any) => p.status === 'pending')
+    : null
 
   return (
     <main className="min-h-screen bg-surface">
@@ -71,9 +79,38 @@ export default async function StatusTokenPage({
           </div>
         )}
 
-        {/* Application details */}
         {application ? (
           <div className="space-y-4">
+            {/* ── Банер одобрения + оплата ── */}
+            {(application as any).status === 'approved' && (application as any).payment_status !== 'paid' && (
+              <div className="p-5 bg-green-50 border border-green-200 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <p className="font-semibold text-green-800">Заявка одобрена!</p>
+                </div>
+                <p className="text-sm text-green-700">
+                  Для подтверждения участия необходимо оплатить регистрационный взнос.
+                </p>
+                {pendingPayment && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-green-800">
+                      Сумма: <strong>{pendingPayment.amount} {pendingPayment.currency}</strong>
+                    </span>
+                    <PayButton applicationId={(application as any).id} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Банер оплачено ── */}
+            {(application as any).payment_status === 'paid' && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                <p className="text-green-700 text-sm font-medium">Оплата получена. Участие подтверждено!</p>
+              </div>
+            )}
+
+            {/* ── Карточка заявки ── */}
             <div className="bg-surface-container-lowest rounded-xl p-6 shadow-radiant space-y-4">
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
@@ -94,7 +131,7 @@ export default async function StatusTokenPage({
               </div>
 
               {/* Details */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant border-opacity-10">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant/10">
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('performance')}</p>
                   <p className="text-sm text-on-surface font-medium">
@@ -118,15 +155,16 @@ export default async function StatusTokenPage({
                 </div>
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('id')}</p>
-                  <p className="text-xs text-on-surface-variant font-mono">
-                    {(application as any).id.substring(0, 8)}...
+                  {/* Полный ID — для поиска */}
+                  <p className="text-xs text-on-surface-variant font-mono break-all leading-relaxed">
+                    {(application as any).id}
                   </p>
                 </div>
               </div>
 
               {/* Nomination + Category */}
               {((application as any).nominations || (application as any).categories) && (
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant border-opacity-10">
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant/10">
                   {(application as any).categories && (
                     <div>
                       <p className="text-xs text-on-surface-variant">Категория</p>
