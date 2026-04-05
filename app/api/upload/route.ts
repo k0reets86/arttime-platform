@@ -7,13 +7,15 @@ const uuidv4 = () => crypto.randomUUID()
 const MAX_SIZE_VIDEO = 500 * 1024 * 1024    // 500 MB
 const MAX_SIZE_DEFAULT = 50 * 1024 * 1024   // 50 MB
 
+// Точные MIME-типы для проверки
 const ALLOWED_TYPES: Record<string, string> = {
   // Видео
   'video/mp4': 'video',
   'video/quicktime': 'video',
   'video/x-msvideo': 'video',
   'video/webm': 'video',
-  // Фото
+  'video/x-matroska': 'video',
+  // Фото (точные типы)
   'image/jpeg': 'photo',
   'image/jpg': 'photo',
   'image/png': 'photo',
@@ -23,7 +25,7 @@ const ALLOWED_TYPES: Record<string, string> = {
   'image/heif': 'photo',
   'image/bmp': 'photo',
   'image/tiff': 'photo',
-  // Музыка
+  // Музыка (точные типы — дополнительные варианты через detectTypeByMime ниже)
   'audio/mpeg': 'music',
   'audio/mp3': 'music',
   'audio/wav': 'music',
@@ -34,10 +36,26 @@ const ALLOWED_TYPES: Record<string, string> = {
   'audio/mp4': 'music',
   'audio/m4a': 'music',
   'audio/x-m4a': 'music',
+  'audio/x-mp3': 'music',
+  'audio/x-mpeg': 'music',
+  'audio/x-aiff': 'music',
+  'audio/aiff': 'music',
+  'audio/opus': 'music',
+  'audio/webm': 'music',
+  'audio/3gpp': 'music',
+  'audio/x-ms-wma': 'music',
   // Документы
   'application/pdf': 'doc',
   'application/msword': 'doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'doc',
+}
+
+// Определяет тип файла по MIME-префиксу если точный тип не найден
+function detectTypeByMime(mime: string): string | null {
+  if (mime.startsWith('audio/')) return 'music'
+  if (mime.startsWith('image/')) return 'photo'
+  if (mime.startsWith('video/')) return 'video'
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -53,8 +71,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'file и applicationId обязательны' }, { status: 400 })
     }
 
-    // Проверяем тип файла
-    const detectedType = ALLOWED_TYPES[file.type]
+    // Проверяем тип файла — сначала точное совпадение, затем по префиксу
+    const detectedType = ALLOWED_TYPES[file.type] ?? detectTypeByMime(file.type)
     if (!detectedType) {
       return NextResponse.json({
         error: `Недопустимый тип файла: ${file.type}. Разрешены: mp4, mov, jpg, png, gif, webp, heic, mp3, wav, aac, flac, ogg, pdf, doc, docx`
