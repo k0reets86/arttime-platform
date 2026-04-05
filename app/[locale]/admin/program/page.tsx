@@ -2,6 +2,7 @@
 import { requireRole } from '@/lib/auth/requireRole'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import ProgramEditor from '@/components/admin/ProgramEditor'
+import WinampPlayer from '@/components/admin/WinampPlayer'
 
 export default async function ProgramPage({
   params: { locale },
@@ -44,6 +45,15 @@ export default async function ProgramPage({
           Редактор порядка выступлений · {programSlots?.length ?? 0} слотов
         </p>
       </div>
+
+      {/* Winamp-style playlist player */}
+      {(programSlots ?? []).some((s: any) => s.applications) && (
+        <WinampPlayer
+          programSlots={(programSlots ?? []) as any[]}
+          locale={locale}
+        />
+      )}
+
       <ProgramEditor
         festivalId={festivalId!}
         programSlots={(programSlots ?? []) as any[]}

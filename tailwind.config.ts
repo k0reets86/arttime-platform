@@ -35,6 +35,15 @@ const config: Config = {
         'radiant': '0 40px 60px -15px rgba(93,63,211,0.12)',
         'radiant-sm': '0 20px 40px -10px rgba(93,63,211,0.08)',
       },
+      keyframes: {
+        bounce: {
+          '0%, 100%': { transform: 'scaleY(0.4)' },
+          '50%': { transform: 'scaleY(1)' },
+        },
+      },
+      animation: {
+        bounce: 'bounce 0.6s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
