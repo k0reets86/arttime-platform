@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Music, Image, FileText, ExternalLink, Download, Play, Pause, Youtube } from 'lucide-react'
+import { Music, Image, FileText, ExternalLink, Download, Play, Pause, Video } from 'lucide-react'
 
 interface AppFile {
   id: string
@@ -104,7 +104,7 @@ export default function ApplicationFilesPanel({ applicationId, videoLink, locale
       {/* YouTube / видео ссылка */}
       {videoLink && (
         <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-100">
-          <Youtube className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+          <Video className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-on-surface-variant mb-1 font-medium">YouTube / Видео-ссылка</p>
             <a

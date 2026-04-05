@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   GripVertical, Plus, Trash2, Clock, Music,
   Save, Loader2, Video, ChevronDown, ChevronUp,
-  Download, CalendarDays, Play, Pause, Youtube, ExternalLink
+  Download, CalendarDays, Play, Pause, ExternalLink
 } from 'lucide-react'
 
 interface ProgramSlot {
@@ -343,7 +343,7 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
                         className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
                         title="YouTube / видео"
                       >
-                        <Youtube className="w-3.5 h-3.5" /> Видео <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3.5 h-3.5" /> Видео
                       </a>
                     )}
                   </div>
