@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminSupabaseClient } from '@/lib/supabase/server'
 import { uploadToR2 } from '@/lib/r2/upload'
 const uuidv4 = () => crypto.randomUUID()
 
@@ -42,7 +42,7 @@ const ALLOWED_TYPES: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = createAdminSupabaseClient()
     const formData = await req.formData()
 
     const file = formData.get('file') as File | null
@@ -154,7 +154,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'fileId и applicationId обязательны' }, { status: 400 })
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = createAdminSupabaseClient()
     const { error } = await supabase
       .from('application_files')
       .delete()

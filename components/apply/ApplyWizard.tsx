@@ -154,6 +154,7 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
       if (pendingFilesRef.current.size > 0) {
         const total = pendingFilesRef.current.size
         let uploaded = 0
+        const uploadErrors: string[] = []
         for (const [fileId, file] of pendingFilesRef.current.entries()) {
           const info = data.fileInfos.find(f => f.id === fileId)
           if (!info) continue
@@ -162,8 +163,21 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
           fd.append('file', file)
           fd.append('applicationId', applicationId)
           fd.append('type', info.type)
-          await fetch('/api/upload', { method: 'POST', body: fd })
+          try {
+            const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
+            const uploadJson = await uploadRes.json()
+            if (!uploadRes.ok) {
+              uploadErrors.push(`${info.name}: ${uploadJson.error || 'Ошибка загрузки'}`)
+            }
+          } catch {
+            uploadErrors.push(`${info.name}: ошибка сети`)
+          }
           uploaded++
+        }
+        if (uploadErrors.length > 0) {
+          setUploadStatus(`⚠️ Некоторые файлы не загрузились: ${uploadErrors.join('; ')}`)
+          // Продолжаем — заявка уже создана, перенаправляем но показываем предупреждение
+          await new Promise(r => setTimeout(r, 4000))
         }
       }
 
