@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       .from('payments')
       .insert({
         festival_id: festivalId,
+        type: 'ticket',
         amount,
         currency: 'EUR',
         status: 'paid',

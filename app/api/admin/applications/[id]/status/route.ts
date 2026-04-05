@@ -36,9 +36,10 @@ export async function PATCH(
         break
       case 'reject':
         update = {
-          status:      'rejected',
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
+          status:         'rejected',
+          payment_status: 'cancelled',
+          reviewed_at:    new Date().toISOString(),
+          reviewed_by:    user.id,
         }
         break
       case 'waitlist':
