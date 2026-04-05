@@ -16,6 +16,16 @@ import {
   Hash, Music
 } from 'lucide-react'
 
+function fmtDateTime(s: string) {
+  const d = new Date(s)
+  return `${String(d.getUTCDate()).padStart(2,'0')}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${d.getUTCFullYear()}, ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
+}
+function fmtDate(s: string | null) {
+  if (!s) return '—'
+  const d = new Date(s)
+  return `${String(d.getUTCDate()).padStart(2,'0')}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${d.getUTCFullYear()}`
+}
+
 export default async function ApplicationDetailPage({
   params: { locale, id },
 }: {
@@ -44,7 +54,6 @@ export default async function ApplicationDetailPage({
 
   if (!app) notFound()
 
-  // Список всех администраторов фестиваля для компонента AdminAttention
   const { data: adminUsers } = await adminClient
     .from('users')
     .select('id, display_name, role, email')
@@ -71,7 +80,6 @@ export default async function ApplicationDetailPage({
 
   return (
     <div className="p-8 space-y-6 max-w-5xl">
-      {/* Back */}
       <Link
         href={`/${locale}/admin/applications`}
         className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-primary transition-colors"
@@ -79,7 +87,6 @@ export default async function ApplicationDetailPage({
         <ChevronLeft className="w-4 h-4" /> Все заявки
       </Link>
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -92,10 +99,9 @@ export default async function ApplicationDetailPage({
             )}
           </div>
           <p className="text-on-surface-variant mt-1 text-sm">
-            Подана {new Date(app.created_at).toLocaleString('ru')}
+            Подана {fmtDateTime(app.created_at)}
           </p>
         </div>
-        {/* Action buttons */}
         <ApplicationActions
           applicationId={app.id}
           currentStatus={app.status}
@@ -103,20 +109,15 @@ export default async function ApplicationDetailPage({
         />
       </div>
 
-      {/* ═══ ОСНОВНОЙ КОНТЕНТ ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Левая колонка — 2/3 */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Категория и номинация */}
           <Section title="Категория и номинация">
             <InfoRow icon={FileText} label="Категория" value={getI18n(app.categories?.name_i18n)} />
             <InfoRow icon={Music} label="Номинация" value={getI18n(app.nominations?.name_i18n)} />
             <InfoRow icon={Users} label="Тип" value={app.applicant_type === 'solo' ? 'Соло' : 'Коллектив'} />
           </Section>
 
-          {/* Контактная информация */}
           <Section title="Контактная информация">
             <InfoRow icon={User} label="Контактное лицо" value={app.contact_name || '—'} />
             <InfoRow icon={Mail} label="Email" value={app.contact_email} />
@@ -125,7 +126,6 @@ export default async function ApplicationDetailPage({
             <InfoRow icon={MapPin} label="Страна / Город" value={`${app.country || '—'} / ${app.city || '—'}`} />
           </Section>
 
-          {/* Выступление */}
           <Section title="Выступление">
             <InfoRow icon={Music} label="Название" value={app.performance_title || '—'} />
             <InfoRow
@@ -160,7 +160,6 @@ export default async function ApplicationDetailPage({
             )}
           </Section>
 
-          {/* ── Медиафайлы ── */}
           <Section title="Медиафайлы">
             <ApplicationFilesPanel
               applicationId={app.id}
@@ -169,7 +168,6 @@ export default async function ApplicationDetailPage({
             />
           </Section>
 
-          {/* Участники (для коллективов) */}
           {app.application_members && app.application_members.length > 0 && (
             <Section title={`Участники (${app.application_members.length})`}>
               <div className="space-y-2">
@@ -184,7 +182,7 @@ export default async function ApplicationDetailPage({
                     </div>
                     {m.birth_date && (
                       <p className="text-xs text-on-surface-variant shrink-0">
-                        {new Date(m.birth_date).toLocaleDateString('ru')}
+                        {fmtDate(m.birth_date)}
                       </p>
                     )}
                   </div>
@@ -193,7 +191,6 @@ export default async function ApplicationDetailPage({
             </Section>
           )}
 
-          {/* ───── ФОРМА РЕДАКТИРОВАНИЯ ───── */}
           <ApplicationEditForm
             applicationId={app.id}
             initialData={{
@@ -209,17 +206,14 @@ export default async function ApplicationDetailPage({
             }}
           />
 
-          {/* ───── ЧАТ С УЧАСТНИКОМ ───── */}
           <ApplicationChat
             applicationId={app.id}
             currentUserName={(user as any).display_name || 'Администратор'}
           />
         </div>
 
-        {/* Правая колонка — сайдбар */}
         <div className="space-y-5">
 
-          {/* Пакеты */}
           {app.application_packages && app.application_packages.length > 0 && (
             <Section title="Пакеты">
               <div className="space-y-2">
@@ -242,7 +236,6 @@ export default async function ApplicationDetailPage({
             </Section>
           )}
 
-          {/* Платежи */}
           <Section title="Платежи">
             <PaymentAdminPanel
               applicationId={app.id}
@@ -253,13 +246,11 @@ export default async function ApplicationDetailPage({
             />
           </Section>
 
-          {/* ───── НАЗНАЧИТЬ ВНИМАНИЕ АДМИНИСТРАТОРА ───── */}
           <AdminAttention
             applicationId={app.id}
             adminUsers={adminUsers ?? []}
           />
 
-          {/* Статус заявки — статус-страница для участника */}
           <Section title="Ссылка участника">
             <p className="text-xs text-on-surface-variant mb-2">
               Участник видит свою заявку по этой ссылке:
