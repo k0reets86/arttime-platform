@@ -119,7 +119,17 @@
     "help_desc": "Our team is ready to answer any questions about your application.",
     "help_link": "Contact Us",
     "solo_desc": "Solo performance — a single artist performing alone.",
-    "group_desc": "Group — ensemble, duo, orchestra or dance company."
+    "group_desc": "Group — ensemble, duo, orchestra or dance company.",
+    "file_section_label": "Files",
+    "file_section_desc": "Photo, music track (MP3/WAV/M4A), documents (PDF). Max 50 MB each.",
+    "file_type_photo": "Photo",
+    "file_type_music": "Music track",
+    "file_type_doc": "Document",
+    "file_select_photo": "Select photo",
+    "file_select_music": "Select music",
+    "file_select_doc": "Select document",
+    "file_add_more": "Add more",
+    "file_too_large": "File \"{name}\" exceeds the {max} MB limit"
   },
   "status": {
     "draft": "Draft",

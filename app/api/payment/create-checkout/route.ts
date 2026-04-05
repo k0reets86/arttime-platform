@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Получаем запись о платеже
-    let { data: payment } = await supabase
+    const { data: payment } = await supabase
       .from('payments')
       .select('id, amount, currency, stripe_payment_intent_id')
       .eq('application_id', applicationId)
@@ -48,47 +48,8 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .single()
 
-    // Если записи нет — создаём на основе настроек фестиваля (registration_fee)
     if (!payment || payment.amount <= 0) {
-      const { data: festival } = await supabase
-        .from('festivals')
-        .select('settings_json')
-        .eq('id', app.festival_id)
-        .single()
-
-      const fee = (festival as any)?.settings_json?.registration_fee
-      if (!fee || !fee.amount || fee.amount <= 0) {
-        return NextResponse.json(
-          { error: 'Сумма взноса не задана. Обратитесь к организатору.' },
-          { status: 404 }
-        )
-      }
-
-      const { data: newPayment, error: payErr } = await supabase
-        .from('payments')
-        .insert({
-          application_id: applicationId,
-          festival_id:    app.festival_id,
-          type:           'registration',
-          amount:         fee.amount,
-          currency:       fee.currency ?? 'EUR',
-          status:         'pending',
-          provider:       'stripe',
-        })
-        .select('id, amount, currency, stripe_payment_intent_id')
-        .single()
-
-      if (payErr || !newPayment) {
-        return NextResponse.json({ error: 'Не удалось создать запись платежа' }, { status: 500 })
-      }
-
-      payment = newPayment
-
-      // Обновляем payment_status заявки → pending
-      await supabase
-        .from('applications')
-        .update({ payment_status: 'pending' })
-        .eq('id', applicationId)
+      return NextResponse.json({ error: 'Платёж не найден или сумма равна 0' }, { status: 404 })
     }
 
     // Если уже есть Stripe session ID — пробуем переиспользовать

@@ -23,23 +23,20 @@ export default async function StatusPage({
 
   const t = await getTranslations({ locale, namespace: 'status' })
 
-  let application = null
+  let applications: any[] = []
   if (searchParams.email) {
     const supabase = createAdminSupabaseClient()
     const { data } = await supabase
       .from('applications')
       .select(`
-        *,
+        id, name, contact_email, status, payment_status, created_at,
+        performance_title, performance_duration_sec,
         categories(name_i18n),
-        nominations(name_i18n),
-        application_packages(*, packages(*)),
-        payments(*)
+        nominations(name_i18n)
       `)
       .eq('contact_email', searchParams.email)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-    application = data
+    applications = data ?? []
   }
 
   const getStatusIcon = (status: string) => {
@@ -86,69 +83,62 @@ export default async function StatusPage({
         {/* Search form */}
         <StatusSearch locale={locale} />
 
-        {/* Application details */}
-        {application && (
-          <div className="mt-8 space-y-4">
-            <div className="bg-surface-container-lowest rounded-xl p-6 shadow-radiant space-y-4">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-headline text-xl font-bold text-on-surface">
-                    {(application as any).name}
-                  </h2>
-                  <p className="text-sm text-on-surface-variant mt-1">
-                    {(application as any).contact_email}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getStatusIcon((application as any).status)}
-                  <Badge variant={getStatusVariant((application as any).status)}>
-                    {t(`status_${(application as any).status}` as any)}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-outline-variant border-opacity-10">
-                <div>
-                  <p className="text-xs text-on-surface-variant">{t('performance')}</p>
-                  <p className="text-sm text-on-surface font-medium">
-                    {(application as any).performance_title || '—'}
-                  </p>
-                </div>
-                {/* Статус оплаты — НЕ показываем для отклонённых */}
-                {(application as any).status !== 'rejected' && (
-                  <div>
-                    <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
-                    <Badge
-                      variant={(application as any).payment_status === 'paid' ? 'success' : 'warning'}
-                      className="mt-1"
-                    >
-                      {(application as any).payment_status === 'paid'
-                        ? t('payment_paid')
-                        : t('payment_pending')}
+        {/* Список заявок по email */}
+        {searchParams.email && applications.length > 0 && (
+          <div className="mt-8 space-y-3">
+            <p className="text-sm text-on-surface-variant">
+              Найдено заявок: <strong>{applications.length}</strong>
+            </p>
+            {applications.map((app) => (
+              <Link
+                key={app.id}
+                href={`/${locale}/status/${app.id}`}
+                className="block bg-surface-container-lowest rounded-xl p-5 shadow-radiant hover:shadow-lg transition-shadow group"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-headline text-base font-bold text-on-surface group-hover:text-primary transition-colors truncate">
+                      {app.name}
+                    </h2>
+                    {app.performance_title && (
+                      <p className="text-sm text-on-surface-variant mt-0.5 truncate">
+                        {app.performance_title}
+                      </p>
+                    )}
+                    <p className="text-xs text-on-surface-variant mt-1">
+                      Подана {new Date(app.created_at).toLocaleDateString(locale)}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      {getStatusIcon(app.status)}
+                      <Badge variant={getStatusVariant(app.status)}>
+                        {t(`status_${app.status}` as any)}
+                      </Badge>
+                    </div>
+                    <Badge variant={app.payment_status === 'paid' ? 'success' : 'warning'}>
+                      {t(`payment_${app.payment_status}` as any)}
                     </Badge>
                   </div>
-                )}
-                <div>
-                  <p className="text-xs text-on-surface-variant">{t('submitted_at')}</p>
-                  <p className="text-sm text-on-surface">
-                    {new Date((application as any).created_at).toLocaleDateString()}
-                  </p>
                 </div>
-                <div>
-                  <p className="text-xs text-on-surface-variant">{t('id')}</p>
-                  <p className="text-xs text-on-surface-variant font-mono">
-                    {(application as any).id.substring(0, 8)}...
-                  </p>
-                </div>
-              </div>
-            </div>
+                <p className="text-xs text-primary mt-3 group-hover:underline">
+                  Открыть заявку и чат →
+                </p>
+              </Link>
+            ))}
           </div>
         )}
 
-        {/* Not found */}
-        {searchParams.id && !application && (
+        {/* Email введён, но ничего не нашли */}
+        {searchParams.email && applications.length === 0 && (
+          <div className="mt-8 text-center space-y-4">
+            <Search className="w-12 h-12 text-on-surface-variant mx-auto" />
+            <p className="text-on-surface-variant">{t('not_found')}</p>
+          </div>
+        )}
+
+        {/* Not found by ID (старый формат) */}
+        {searchParams.id && applications.length === 0 && (
           <div className="mt-8 text-center space-y-4">
             <Search className="w-12 h-12 text-on-surface-variant mx-auto" />
             <p className="text-on-surface-variant">{t('not_found')}</p>

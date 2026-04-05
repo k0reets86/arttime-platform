@@ -152,7 +152,7 @@ export default function ParticipantChat({ applicationId, participantName }: Prop
                       : 'bg-surface-container-low text-on-surface rounded-bl-sm'
                   }`}>
                     <p className={`text-xs font-medium mb-1 ${isMe ? 'text-on-primary/70' : 'text-on-surface-variant'}`}>
-                      {isMe ? 'Вы' : msg.sender_name}
+                      {isMe ? 'Вы' : msg.sender_type === 'admin' ? 'Администратор' : msg.sender_name}
                     </p>
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
                     <p className={`text-xs mt-1.5 text-right ${isMe ? 'text-on-primary/50' : 'text-on-surface-variant/60'}`}>

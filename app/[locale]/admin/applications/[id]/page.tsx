@@ -9,6 +9,7 @@ import ApplicationEditForm from '@/components/admin/ApplicationEditForm'
 import ApplicationChat from '@/components/admin/ApplicationChat'
 import AdminAttention from '@/components/admin/AdminAttention'
 import PaymentAdminPanel from '@/components/admin/PaymentAdminPanel'
+import ApplicationFilesPanel from '@/components/admin/ApplicationFilesPanel'
 import {
   ChevronLeft, User, Mail, Phone, Globe, MapPin,
   Video, Clock, FileText, Users,
@@ -34,7 +35,8 @@ export default async function ApplicationDetailPage({
         id, quantity, paid_amount,
         packages(id, name_i18n)
       ),
-      payments(id, amount, currency, status, provider, created_at, stripe_payment_intent_id)
+      payments(id, amount, currency, status, provider, created_at, stripe_payment_intent_id),
+      application_files(id, type, original_name, size_bytes, storage_path, storage_backend, created_at)
     `)
     .eq('id', id)
     .eq('festival_id', festivalId!)
@@ -156,6 +158,15 @@ export default async function ApplicationDetailPage({
                 <p className="text-sm text-on-surface whitespace-pre-wrap">{app.notes}</p>
               </div>
             )}
+          </Section>
+
+          {/* ── Медиафайлы ── */}
+          <Section title="Медиафайлы">
+            <ApplicationFilesPanel
+              applicationId={app.id}
+              videoLink={(app as any).video_link}
+              locale={locale}
+            />
           </Section>
 
           {/* Участники (для коллективов) */}

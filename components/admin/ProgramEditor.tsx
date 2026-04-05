@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   GripVertical, Plus, Trash2, Clock, Music,
   Save, Loader2, Video, ChevronDown, ChevronUp,
-  Download, CalendarDays
+  Download, CalendarDays, Play, Pause, Youtube, ExternalLink
 } from 'lucide-react'
 
 interface ProgramSlot {
@@ -16,13 +16,13 @@ interface ProgramSlot {
   technical_comment: string | null; day_label: string | null; stage_label: string | null
   applications: {
     id: string; name: string; performance_number: number | null; performance_title: string | null
-    performance_duration_sec: number | null; nomination_id: string
+    performance_duration_sec: number | null; nomination_id: string; video_link?: string | null
     nominations: { name_i18n: Record<string, string>; categories: any } | null
   } | null
 }
 interface Application {
   id: string; name: string; performance_number: number | null; performance_title: string | null
-  performance_duration_sec: number | null; nomination_id: string
+  performance_duration_sec: number | null; nomination_id: string; video_link?: string | null
 }
 interface Nomination { id: string; name_i18n: Record<string, string>; categories: any }
 
@@ -32,6 +32,83 @@ interface Props {
   nominations: Nomination[]
   approvedApps: Application[]
   locale: string
+}
+
+// ── Мини-плеер для фонограммы ──────────────────────────────────────────
+function MusicPlayer({ applicationId, locale }: { applicationId: string; locale: string }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'error'>('idle')
+  const [musicUrl, setMusicUrl] = useState<string | null>(null)
+  const [fileName, setFileName] = useState('')
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  const load = async () => {
+    setState('loading')
+    try {
+      const res = await fetch(`/api/admin/applications/${applicationId}/files?locale=${locale}`)
+      const data = await res.json()
+      const musicFile = (data.files ?? []).find((f: any) => f.type === 'music' && f.signedUrl)
+      if (!musicFile) { setState('error'); return }
+      setMusicUrl(musicFile.signedUrl)
+      setFileName(musicFile.original_name)
+      setState('ready')
+    } catch { setState('error') }
+  }
+
+  const toggle = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (state === 'playing') { audio.pause(); setState('paused') }
+    else { document.querySelectorAll('audio').forEach(a => { if (a !== audio) a.pause() }); audio.play(); setState('playing') }
+  }
+
+  useEffect(() => {
+    if (state === 'ready' && musicUrl && audioRef.current) {
+      audioRef.current.load()
+      // auto-play after load
+      audioRef.current.play().then(() => setState('playing')).catch(() => setState('ready'))
+    }
+  }, [state, musicUrl])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const onEnded = () => setState('paused')
+    audio.addEventListener('ended', onEnded)
+    return () => audio.removeEventListener('ended', onEnded)
+  }, [])
+
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={load}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-medium transition-colors"
+        title="Загрузить и воспроизвести фонограмму"
+      >
+        <Music className="w-3.5 h-3.5" /> Слушать
+      </button>
+    )
+  }
+  if (state === 'loading') return <span className="text-xs text-purple-500 animate-pulse flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Загрузка...</span>
+  if (state === 'error') return <span className="text-xs text-red-400">Нет файла</span>
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {musicUrl && <audio ref={audioRef} src={musicUrl} preload="auto" />}
+      <button
+        onClick={toggle}
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors"
+      >
+        {state === 'playing' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+      </button>
+      <span className="text-xs text-purple-600 max-w-[120px] truncate" title={fileName}>{fileName}</span>
+      {state === 'playing' && <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />}
+      {musicUrl && (
+        <a href={musicUrl} download={fileName} className="text-purple-500 hover:text-purple-700" title="Скачать">
+          <Download className="w-3.5 h-3.5" />
+        </a>
+      )}
+    </div>
+  )
 }
 
 export default function ProgramEditor({ festivalId, programSlots: initial, nominations, approvedApps, locale }: Props) {
@@ -253,6 +330,24 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
                     {slot.stage_label && <Badge variant="outline" className="text-[10px]">{slot.stage_label}</Badge>}
                   </div>
                 </div>
+
+                {/* ── Медиа: фонограмма + YouTube ── */}
+                {slot.applications && (
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <MusicPlayer applicationId={slot.applications.id} locale={locale} />
+                    {slot.applications.video_link && (
+                      <a
+                        href={slot.applications.video_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                        title="YouTube / видео"
+                      >
+                        <Youtube className="w-3.5 h-3.5" /> Видео <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
 
                 {/* Time and comment inputs */}
                 <div className="flex gap-2 flex-wrap">

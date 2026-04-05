@@ -139,7 +139,7 @@ export default function ApplicationChat({ applicationId, currentUserName }: Prop
     new Date(iso).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl shadow-radiant flex flex-col" style={{ height: 480 }}>
+    <div id="chat" className="bg-surface-container-lowest rounded-xl shadow-radiant flex flex-col" style={{ height: 480 }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/10">
         <div className="flex items-center gap-2">

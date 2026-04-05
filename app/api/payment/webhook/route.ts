@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/payment/webhook
  * Stripe webhook — обрабатывает checkout.session.completed.
@@ -10,29 +12,35 @@ export async function POST(req: NextRequest) {
   const body = await req.text()
   const signature = req.headers.get('stripe-signature')
 
+  console.log('[webhook] received, body length:', body.length, ', sig present:', !!signature)
+
   if (!signature) {
+    console.error('[webhook] Missing stripe-signature header')
     return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
   }
 
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-    console.error('Stripe env vars not configured')
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+
+  if (!secretKey || !webhookSecret) {
+    console.error('[webhook] Stripe env vars not configured. secretKey:', !!secretKey, 'webhookSecret:', !!webhookSecret)
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
   }
+
+  console.log('[webhook] secret prefix:', webhookSecret.substring(0, 12) + '...')
 
   let event: import('stripe').Stripe.Event
 
   try {
     const stripe = await import('stripe')
-    const stripeClient = new stripe.default(process.env.STRIPE_SECRET_KEY)
-    event = stripeClient.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
+    const stripeClient = new stripe.default(secretKey)
+    event = stripeClient.webhooks.constructEvent(body, signature, webhookSecret)
+    console.log('[webhook] signature verified, event type:', event.type)
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[webhook] Signature verification failed:', msg)
     return NextResponse.json(
-      { error: `Webhook signature verification failed` },
+      { error: `Webhook signature verification failed: ${msg}` },
       { status: 400 }
     )
   }

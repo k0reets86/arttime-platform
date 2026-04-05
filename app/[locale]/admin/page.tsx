@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   FileText, Users, CheckCircle, Clock, XCircle,
-  TrendingUp, CreditCard, ChevronRight, AlertTriangle, Webhook
+  TrendingUp, CreditCard, ChevronRight, AlertTriangle, Webhook, MessageCircle
 } from 'lucide-react'
+import UnreadMessagesBadge from '@/components/admin/UnreadMessagesBadge'
 
 interface StatCardProps {
   label: string
@@ -53,6 +54,7 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     { count: rejectedApps },
     { count: totalJudges },
     { count: paidApps },
+    { data: unreadMsgsRaw },
   ] = await Promise.all([
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'submitted'),
@@ -60,7 +62,23 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'rejected'),
     supabase.from('judge_assignments').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('payment_status', 'paid'),
+    // Непрочитанные сообщения от участников
+    supabase
+      .from('application_messages')
+      .select('application_id, message, created_at, sender_name, applications!inner(festival_id)')
+      .eq('sender_type', 'participant')
+      .eq('is_read', false)
+      .eq('applications.festival_id', festivalId!)
+      .order('created_at', { ascending: false }),
   ])
+
+  // Группируем непрочитанные по application_id
+  const unreadByApp: Record<string, { message: string; created_at: string; sender_name: string }[]> = {}
+  for (const msg of unreadMsgsRaw ?? []) {
+    if (!unreadByApp[msg.application_id]) unreadByApp[msg.application_id] = []
+    unreadByApp[msg.application_id].push({ message: msg.message, created_at: msg.created_at, sender_name: msg.sender_name })
+  }
+  const totalUnread = (unreadMsgsRaw ?? []).length
 
   // Recent applications
   const { data: recentApps } = await supabase
@@ -124,6 +142,9 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         <StatCard label="Отклонено" value={rejectedApps ?? 0} icon={XCircle} color="text-red-500" />
         <StatCard label="Судей" value={totalJudges ?? 0} icon={Users} href={`/${locale}/admin/judges`} />
         <StatCard label="Оплачено" value={paidApps ?? 0} icon={CreditCard} color="text-emerald-500" />
+        {totalUnread > 0 && (
+          <StatCard label="Новых сообщений" value={totalUnread} icon={MessageCircle} color="text-red-500" href={`/${locale}/admin/applications`} />
+        )}
       </div>
 
       {/* Webhook health alert */}
@@ -178,7 +199,16 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
               className="flex items-center gap-4 px-6 py-3.5 hover:bg-surface-container-low transition-colors"
             >
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-on-surface truncate">{app.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm text-on-surface truncate">{app.name}</p>
+                  {unreadByApp[app.id]?.length > 0 && (
+                    <UnreadMessagesBadge
+                      applicationId={app.id}
+                      messages={unreadByApp[app.id]}
+                      locale={locale}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-on-surface-variant truncate">{app.contact_email}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

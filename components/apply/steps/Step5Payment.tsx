@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import type { WizardData } from '../ApplyWizard'
-import { CheckCircle, CreditCard, FileText } from 'lucide-react'
+import { CheckCircle, CreditCard, FileText, Building2 } from 'lucide-react'
 
 interface Props {
   data: WizardData
@@ -58,12 +58,33 @@ export default function Step5Payment({ data, updateData: _u, errors }: Props) {
       </div>
 
       {/* Payment info */}
-      <div className="bg-surface-container-low rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-primary" />
+      <div className="space-y-3">
+        <h3 className="font-semibold text-on-surface text-sm uppercase tracking-wide text-on-surface-variant">
+          Способ оплаты
+        </h3>
+        <p className="text-xs text-on-surface-variant">
+          Оплата производится <strong>после одобрения заявки</strong> администратором.
+          Вы получите уведомление со ссылкой для оплаты.
+        </p>
+
+        {/* Stripe */}
+        <div className="bg-surface-container-low rounded-xl p-4 flex items-start gap-3">
+          <CreditCard className="w-5 h-5 text-primary shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-on-surface">{t('payment_stripe')}</p>
             <p className="text-xs text-on-surface-variant">{t('payment_stripe_desc')}</p>
+          </div>
+        </div>
+
+        {/* IBAN / Банковский перевод */}
+        <div className="bg-surface-container-low rounded-xl p-4 flex items-start gap-3">
+          <Building2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-on-surface">Банк / IBAN-перевод</p>
+            <p className="text-xs text-on-surface-variant">
+              Оплата банковским переводом на расчётный счёт организатора.
+              Реквизиты придут в письме после одобрения. После оплаты — отправьте скриншот / квитанцию организатору.
+            </p>
           </div>
         </div>
       </div>

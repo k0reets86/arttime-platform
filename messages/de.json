@@ -119,7 +119,17 @@
     "help_desc": "Unser Team beantwortet gerne alle Fragen zu Ihrer Bewerbung.",
     "help_link": "Schreiben Sie uns",
     "solo_desc": "Soloauftritt — eine einzige Person tritt auf.",
-    "group_desc": "Gruppe — Ensemble, Duo, Orchester oder Tanzgruppe."
+    "group_desc": "Gruppe — Ensemble, Duo, Orchester oder Tanzgruppe.",
+    "file_section_label": "Dateien",
+    "file_section_desc": "Foto, Musiktrack (MP3/WAV/M4A), Dokumente (PDF). Max. 50 MB pro Datei.",
+    "file_type_photo": "Foto",
+    "file_type_music": "Musiktrack",
+    "file_type_doc": "Dokument",
+    "file_select_photo": "Foto auswählen",
+    "file_select_music": "Musik auswählen",
+    "file_select_doc": "Dokument auswählen",
+    "file_add_more": "Weitere hinzufügen",
+    "file_too_large": "Datei \"{name}\" überschreitet das Limit von {max} MB"
   },
   "status": {
     "draft": "Entwurf",

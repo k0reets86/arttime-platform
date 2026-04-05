@@ -30,7 +30,7 @@ export default async function ProgramPage({
       .order('sort_order'),
     supabase
       .from('applications')
-      .select('id, name, performance_number, performance_title, performance_duration_sec, nomination_id')
+      .select('id, name, performance_number, performance_title, performance_duration_sec, nomination_id, video_link')
       .eq('festival_id', festivalId!)
       .eq('status', 'approved')
       .order('performance_number'),
