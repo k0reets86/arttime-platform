@@ -28,7 +28,7 @@ export async function GET(
     .from('application_files')
     .select('*')
     .eq('application_id', params.id)
-    .order('created_at', { ascending: true })
+    .order('uploaded_at', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

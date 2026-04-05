@@ -34,76 +34,146 @@ interface Props {
   locale: string
 }
 
-// ── Мини-плеер для фонограммы ──────────────────────────────────────────
+// ── Полноценный плеер для фонограммы ──────────────────────────────────
+function fmt(sec: number) {
+  if (!isFinite(sec)) return '0:00'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function MusicPlayer({ applicationId, locale }: { applicationId: string; locale: string }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'error'>('idle')
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'error' | 'ready'>('idle')
   const [musicUrl, setMusicUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState('')
+  const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const load = async () => {
-    setState('loading')
+    setPhase('loading')
     try {
       const res = await fetch(`/api/admin/applications/${applicationId}/files?locale=${locale}`)
       const data = await res.json()
-      const musicFile = (data.files ?? []).find((f: any) => f.type === 'music' && f.signedUrl)
-      if (!musicFile) { setState('error'); return }
-      setMusicUrl(musicFile.signedUrl)
-      setFileName(musicFile.original_name)
-      setState('ready')
-    } catch { setState('error') }
+      const f = (data.files ?? []).find((f: any) => f.type === 'music' && f.signedUrl)
+      if (!f) { setPhase('error'); return }
+      setMusicUrl(f.signedUrl)
+      setFileName(f.original_name)
+      setPhase('ready')
+    } catch { setPhase('error') }
   }
 
   const toggle = () => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (state === 'playing') { audio.pause(); setState('paused') }
-    else { document.querySelectorAll('audio').forEach(a => { if (a !== audio) a.pause() }); audio.play(); setState('playing') }
+    const a = audioRef.current
+    if (!a) return
+    if (playing) { a.pause() }
+    else {
+      document.querySelectorAll('audio').forEach(el => { if (el !== a) { el.pause() } })
+      a.play()
+    }
   }
 
-  useEffect(() => {
-    if (state === 'ready' && musicUrl && audioRef.current) {
-      audioRef.current.load()
-      // auto-play after load
-      audioRef.current.play().then(() => setState('playing')).catch(() => setState('ready'))
-    }
-  }, [state, musicUrl])
+  const seek = (val: number) => {
+    const a = audioRef.current
+    if (a) { a.currentTime = val; setCurrent(val) }
+  }
 
+  // Авто-воспроизведение после загрузки URL
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    const onEnded = () => setState('paused')
-    audio.addEventListener('ended', onEnded)
-    return () => audio.removeEventListener('ended', onEnded)
+    const a = audioRef.current
+    if (!a || !musicUrl || phase !== 'ready') return
+    a.load()
+    const onCanPlay = () => { a.play().catch(() => null) }
+    a.addEventListener('canplay', onCanPlay, { once: true })
+    return () => a.removeEventListener('canplay', onCanPlay)
+  }, [musicUrl, phase])
+
+  // Биндинг событий audio-элемента
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    const onPlay = () => setPlaying(true)
+    const onPause = () => setPlaying(false)
+    const onEnded = () => { setPlaying(false); setCurrent(0) }
+    const onTimeUpdate = () => setCurrent(a.currentTime)
+    const onDurationChange = () => setDuration(a.duration)
+    a.addEventListener('play', onPlay)
+    a.addEventListener('pause', onPause)
+    a.addEventListener('ended', onEnded)
+    a.addEventListener('timeupdate', onTimeUpdate)
+    a.addEventListener('durationchange', onDurationChange)
+    return () => {
+      a.removeEventListener('play', onPlay)
+      a.removeEventListener('pause', onPause)
+      a.removeEventListener('ended', onEnded)
+      a.removeEventListener('timeupdate', onTimeUpdate)
+      a.removeEventListener('durationchange', onDurationChange)
+    }
   }, [])
 
-  if (state === 'idle') {
+  if (phase === 'idle') {
     return (
       <button
         onClick={load}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-medium transition-colors"
-        title="Загрузить и воспроизвести фонограмму"
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-medium transition-colors"
       >
         <Music className="w-3.5 h-3.5" /> Слушать
       </button>
     )
   }
-  if (state === 'loading') return <span className="text-xs text-purple-500 animate-pulse flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Загрузка...</span>
-  if (state === 'error') return <span className="text-xs text-red-400">Нет файла</span>
+  if (phase === 'loading') {
+    return <span className="text-xs text-purple-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Загрузка...</span>
+  }
+  if (phase === 'error') {
+    return <span className="text-xs text-red-400 flex items-center gap-1"><Music className="w-3 h-3" /> Нет файла</span>
+  }
+
+  const pct = duration > 0 ? (current / duration) * 100 : 0
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-xl px-2.5 py-1.5 min-w-[220px] max-w-[320px]">
       {musicUrl && <audio ref={audioRef} src={musicUrl} preload="auto" />}
+
+      {/* Play/Pause */}
       <button
         onClick={toggle}
-        className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors"
+        className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-colors shrink-0"
       >
-        {state === 'playing' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
       </button>
-      <span className="text-xs text-purple-600 max-w-[120px] truncate" title={fileName}>{fileName}</span>
-      {state === 'playing' && <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />}
+
+      {/* Progress + time */}
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <p className="text-[10px] text-purple-600 truncate leading-none" title={fileName}>{fileName}</p>
+        <div className="flex items-center gap-1.5">
+          {/* Seekable range */}
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            value={current}
+            onChange={e => seek(parseFloat(e.target.value))}
+            className="flex-1 h-1 accent-purple-600 cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, rgb(147,51,234) ${pct}%, #e9d5ff ${pct}%)`
+            }}
+          />
+          <span className="text-[10px] text-purple-500 tabular-nums shrink-0 leading-none">
+            {fmt(current)}{duration > 0 ? ` / ${fmt(duration)}` : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Download */}
       {musicUrl && (
-        <a href={musicUrl} download={fileName} className="text-purple-500 hover:text-purple-700" title="Скачать">
+        <a
+          href={musicUrl}
+          download={fileName}
+          className="text-purple-400 hover:text-purple-700 transition-colors shrink-0"
+          title="Скачать"
+        >
           <Download className="w-3.5 h-3.5" />
         </a>
       )}

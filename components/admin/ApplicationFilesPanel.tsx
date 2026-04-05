@@ -32,44 +32,87 @@ function FileIcon({ type }: { type: string }) {
   return <FileText className="w-4 h-4 text-gray-500" />
 }
 
+function fmtTime(sec: number) {
+  if (!isFinite(sec) || sec < 0) return '0:00'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function AudioPlayer({ url, name }: { url: string; name: string }) {
   const [playing, setPlaying] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [duration, setDuration] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const toggle = () => {
-    if (!audioRef.current) return
+    const a = audioRef.current
+    if (!a) return
     if (playing) {
-      audioRef.current.pause()
-      setPlaying(false)
+      a.pause()
     } else {
-      // Пауза всех остальных плееров
-      document.querySelectorAll('audio').forEach(a => a.pause())
-      audioRef.current.play()
-      setPlaying(true)
+      document.querySelectorAll('audio').forEach(el => { if (el !== a) el.pause() })
+      a.play()
     }
   }
 
+  const seek = (val: number) => {
+    const a = audioRef.current
+    if (a) { a.currentTime = val; setCurrent(val) }
+  }
+
   useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    const onEnded = () => setPlaying(false)
-    audio.addEventListener('ended', onEnded)
-    return () => audio.removeEventListener('ended', onEnded)
+    const a = audioRef.current
+    if (!a) return
+    const onPlay = () => setPlaying(true)
+    const onPause = () => setPlaying(false)
+    const onEnded = () => { setPlaying(false); setCurrent(0) }
+    const onTimeUpdate = () => setCurrent(a.currentTime)
+    const onDurationChange = () => setDuration(a.duration)
+    a.addEventListener('play', onPlay)
+    a.addEventListener('pause', onPause)
+    a.addEventListener('ended', onEnded)
+    a.addEventListener('timeupdate', onTimeUpdate)
+    a.addEventListener('durationchange', onDurationChange)
+    return () => {
+      a.removeEventListener('play', onPlay)
+      a.removeEventListener('pause', onPause)
+      a.removeEventListener('ended', onEnded)
+      a.removeEventListener('timeupdate', onTimeUpdate)
+      a.removeEventListener('durationchange', onDurationChange)
+    }
   }, [])
 
+  const pct = duration > 0 ? (current / duration) * 100 : 0
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 w-full">
+      <audio ref={audioRef} src={url} preload="metadata" />
       <button
         onClick={toggle}
-        className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors"
+        className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-colors shrink-0"
         title={playing ? 'Пауза' : 'Воспроизвести'}
       >
         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
       </button>
-      <audio ref={audioRef} src={url} preload="none" />
-      {playing && (
-        <span className="text-xs text-purple-600 animate-pulse">▶ воспроизведение...</span>
-      )}
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <input
+          type="range"
+          min={0}
+          max={duration || 100}
+          step={0.1}
+          value={current}
+          onChange={e => seek(parseFloat(e.target.value))}
+          className="w-full h-1.5 accent-purple-600 cursor-pointer"
+          style={{
+            background: `linear-gradient(to right, rgb(147,51,234) ${pct}%, #e9d5ff ${pct}%)`
+          }}
+        />
+        <div className="flex justify-between">
+          <span className="text-[10px] text-purple-500 tabular-nums">{fmtTime(current)}</span>
+          {duration > 0 && <span className="text-[10px] text-purple-400 tabular-nums">{fmtTime(duration)}</span>}
+        </div>
+      </div>
     </div>
   )
 }
