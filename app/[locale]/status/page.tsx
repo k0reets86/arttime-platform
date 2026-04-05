@@ -116,9 +116,11 @@ export default async function StatusPage({
                         {t(`status_${app.status}` as any)}
                       </Badge>
                     </div>
-                    <Badge variant={app.payment_status === 'paid' ? 'success' : 'warning'}>
-                      {t(`payment_${app.payment_status}` as any)}
-                    </Badge>
+                    {app.status !== 'rejected' && (
+                      <Badge variant={app.payment_status === 'paid' ? 'success' : 'warning'}>
+                        {t(`payment_${app.payment_status}` as any)}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-primary mt-3 group-hover:underline">

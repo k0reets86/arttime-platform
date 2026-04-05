@@ -36,7 +36,7 @@ export default async function ApplicationDetailPage({
         packages(id, name_i18n)
       ),
       payments(id, amount, currency, status, provider, created_at, stripe_payment_intent_id),
-      application_files(id, type, original_name, size_bytes, storage_path, storage_backend, created_at)
+      application_files(id, type, original_name, size_bytes, storage_path, storage_backend, uploaded_at)
     `)
     .eq('id', id)
     .eq('festival_id', festivalId!)

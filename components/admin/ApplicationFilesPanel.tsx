@@ -10,7 +10,7 @@ interface AppFile {
   size_bytes: number
   storage_path: string
   storage_backend: string
-  created_at: string
+  uploaded_at: string
   signedUrl: string | null
 }
 
