@@ -10,6 +10,7 @@ import ApplicationChat from '@/components/admin/ApplicationChat'
 import AdminAttention from '@/components/admin/AdminAttention'
 import PaymentAdminPanel from '@/components/admin/PaymentAdminPanel'
 import ApplicationFilesPanel from '@/components/admin/ApplicationFilesPanel'
+import PackageAdminEditor from '@/components/admin/PackageAdminEditor'
 import {
   ChevronLeft, User, Mail, Phone, Globe, MapPin,
   Video, Clock, FileText, Users,
@@ -214,27 +215,25 @@ export default async function ApplicationDetailPage({
 
         <div className="space-y-5">
 
-          {app.application_packages && app.application_packages.length > 0 && (
-            <Section title="Пакеты">
-              <div className="space-y-2">
-                {app.application_packages.map((p: any) => (
-                  <div key={p.id} className="flex justify-between gap-2 py-1.5 border-b border-outline-variant/10 last:border-0">
-                    <div>
-                      <p className="text-sm text-on-surface">{getI18n(p.packages?.name_i18n)}</p>
-                      <p className="text-xs text-on-surface-variant">× {p.quantity}</p>
-                    </div>
-                    <p className="text-sm font-medium text-on-surface shrink-0">
-                      {(p.paid_amount ?? 0).toFixed(2)} €
-                    </p>
-                  </div>
-                ))}
-                <div className="flex justify-between pt-1">
-                  <span className="text-sm font-medium text-on-surface">Итого</span>
-                  <span className="text-sm font-bold text-primary">{totalCost.toFixed(2)} €</span>
-                </div>
-              </div>
-            </Section>
-          )}
+          <Section title="Пакеты">
+            <PackageAdminEditor
+              applicationId={app.id}
+              appStatus={app.status}
+              initialPackages={(app.application_packages ?? []).map((p: any) => ({
+                id: p.id,
+                quantity: p.quantity,
+                paid_amount: p.paid_amount,
+                packages: p.packages
+                  ? {
+                      id: p.packages.id,
+                      name_i18n: p.packages.name_i18n,
+                      price: p.packages.price ?? 0,
+                      currency: p.packages.currency ?? 'EUR',
+                    }
+                  : null,
+              }))}
+            />
+          </Section>
 
           <Section title="Платежи">
             <PaymentAdminPanel
