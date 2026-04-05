@@ -46,9 +46,9 @@ const ACCEPTED: Record<string, string> = {
 }
 
 const MAX_SIZE_MB: Record<string, number> = {
-  photo: 50,
-  music: 50,
-  doc: 50,
+  photo: 10,
+  music: 10,
+  doc: 5,
 }
 
 export default function Step3Performance({ data, updateData, errors, onFileAdd, onFileRemove }: Props) {

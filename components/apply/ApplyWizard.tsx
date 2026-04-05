@@ -163,9 +163,20 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
         let uploaded = 0
         const uploadErrors: string[] = []
 
+        const MAX_SIZES: Record<string, number> = { photo: 10, music: 10, doc: 5, video: 500 }
+
         for (const [fileId, file] of pendingFilesRef.current.entries()) {
           const info = data.fileInfos.find(f => f.id === fileId)
           if (!info) continue
+
+          // Проверка размера перед загрузкой
+          const maxMB = MAX_SIZES[info.type] ?? 10
+          if (file.size > maxMB * 1024 * 1024) {
+            uploadErrors.push(`${info.name}: файл слишком большой (максимум ${maxMB} MB)`)
+            uploaded++
+            continue
+          }
+
           setUploadStatus(`Загрузка файлов: ${uploaded + 1}/${total}...`)
 
           // Прямая загрузка в Supabase Storage — без ограничения Vercel 4.5MB

@@ -3,9 +3,11 @@ import { createAdminSupabaseClient } from '@/lib/supabase/server'
 import { uploadToR2 } from '@/lib/r2/upload'
 const uuidv4 = () => crypto.randomUUID()
 
-// Лимиты согласно ТЗ раздел 13.6
+// Лимиты файлов
 const MAX_SIZE_VIDEO = 500 * 1024 * 1024    // 500 MB
-const MAX_SIZE_DEFAULT = 50 * 1024 * 1024   // 50 MB
+const MAX_SIZE_MUSIC = 10 * 1024 * 1024     // 10 MB
+const MAX_SIZE_PHOTO = 10 * 1024 * 1024     // 10 MB
+const MAX_SIZE_DOC   = 5 * 1024 * 1024      // 5 MB
 
 // Точные MIME-типы для проверки
 const ALLOWED_TYPES: Record<string, string> = {
@@ -82,7 +84,13 @@ export async function POST(req: NextRequest) {
     const resolvedType = fileType || detectedType
 
     // Проверяем размер
-    const maxSize = detectedType === 'video' ? MAX_SIZE_VIDEO : MAX_SIZE_DEFAULT
+    const maxSizeMap: Record<string, number> = {
+      video: MAX_SIZE_VIDEO,
+      music: MAX_SIZE_MUSIC,
+      photo: MAX_SIZE_PHOTO,
+      doc:   MAX_SIZE_DOC,
+    }
+    const maxSize = maxSizeMap[detectedType] ?? MAX_SIZE_DOC
     if (file.size > maxSize) {
       const maxMB = maxSize / 1024 / 1024
       return NextResponse.json({
