@@ -1,6 +1,13 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+// Supabase browser client для прямой загрузки файлов (обходит лимит Vercel 4.5MB)
+const supabaseBrowser = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -155,25 +162,45 @@ export default function ApplyWizard({ festivalId, locale }: Props) {
         const total = pendingFilesRef.current.size
         let uploaded = 0
         const uploadErrors: string[] = []
+
         for (const [fileId, file] of pendingFilesRef.current.entries()) {
           const info = data.fileInfos.find(f => f.id === fileId)
           if (!info) continue
           setUploadStatus(`Загрузка файлов: ${uploaded + 1}/${total}...`)
-          const fd = new FormData()
-          fd.append('file', file)
-          fd.append('applicationId', applicationId)
-          fd.append('type', info.type)
+
+          // Прямая загрузка в Supabase Storage — без ограничения Vercel 4.5MB
+          const ext = file.name.split('.').pop() || 'bin'
+          const path = `applications/${applicationId}/${info.type}/${crypto.randomUUID()}.${ext}`
+
           try {
-            const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
-            const uploadJson = await uploadRes.json()
-            if (!uploadRes.ok) {
-              uploadErrors.push(`${info.name}: ${uploadJson.error || 'Ошибка загрузки'}`)
+            const { data: storageData, error: storageErr } = await supabaseBrowser.storage
+              .from('application-files')
+              .upload(path, file, { contentType: file.type, upsert: false })
+
+            if (storageErr) {
+              uploadErrors.push(`${info.name}: ${storageErr.message}`)
+            } else {
+              // Записываем мета-данные в application_files
+              const { error: dbErr } = await supabaseBrowser
+                .from('application_files')
+                .insert({
+                  application_id: applicationId,
+                  type: info.type,
+                  storage_backend: 'supabase',
+                  storage_path: storageData.path,
+                  original_name: file.name,
+                  size_bytes: file.size,
+                })
+              if (dbErr) {
+                uploadErrors.push(`${info.name}: ${dbErr.message}`)
+              }
             }
-          } catch {
-            uploadErrors.push(`${info.name}: ошибка сети`)
+          } catch (e) {
+            uploadErrors.push(`${info.name}: ошибка загрузки`)
           }
           uploaded++
         }
+
         if (uploadErrors.length > 0) {
           setUploadStatus(`⚠️ Некоторые файлы не загрузились: ${uploadErrors.join('; ')}`)
           // Продолжаем — заявка уже создана, перенаправляем но показываем предупреждение
