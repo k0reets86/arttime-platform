@@ -9,7 +9,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import {
   UserPlus, MoreVertical, ShieldCheck, Shield,
-  Star, CreditCard, UserX, UserCheck, Loader2, Mail
+  Star, CreditCard, UserX, UserCheck, Loader2, Mail, Music, Mic
 } from 'lucide-react'
 
 interface User {
@@ -33,6 +33,8 @@ const ROLE_LABELS: Record<string, string> = {
   organizer: 'Организатор',
   judge: 'Судья',
   cashier: 'Кассир',
+  stage_admin: 'Администратор сцены',
+  music_manager: 'Музыкальный менеджер',
 }
 
 const ROLE_ICONS: Record<string, React.ElementType> = {
@@ -40,6 +42,8 @@ const ROLE_ICONS: Record<string, React.ElementType> = {
   organizer: Shield,
   judge: Star,
   cashier: CreditCard,
+  stage_admin: Mic,
+  music_manager: Music,
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -47,6 +51,8 @@ const ROLE_COLORS: Record<string, string> = {
   organizer: 'text-blue-600 bg-blue-50',
   judge: 'text-amber-600 bg-amber-50',
   cashier: 'text-green-600 bg-green-50',
+  stage_admin: 'text-teal-600 bg-teal-50',
+  music_manager: 'text-pink-600 bg-pink-50',
 }
 
 export default function UsersManager({ users: initialUsers, currentUserId, locale }: Props) {
@@ -181,6 +187,8 @@ export default function UsersManager({ users: initialUsers, currentUserId, local
                 <option value="organizer">Организатор</option>
                 <option value="judge">Судья</option>
                 <option value="cashier">Кассир</option>
+                <option value="stage_admin">Администратор сцены</option>
+                <option value="music_manager">Музыкальный менеджер</option>
                 <option value="super_admin">Суперадмин</option>
               </select>
             </div>
@@ -278,6 +286,8 @@ export default function UsersManager({ users: initialUsers, currentUserId, local
                         <option value="organizer">Организатор</option>
                         <option value="judge">Судья</option>
                         <option value="cashier">Кассир</option>
+                        <option value="stage_admin">Адм. сцены</option>
+                        <option value="music_manager">Муз. менеджер</option>
                         <option value="super_admin">Суперадмин</option>
                       </select>
                     )}

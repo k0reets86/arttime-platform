@@ -174,7 +174,10 @@ export default async function StatusTokenPage({
                 </div>
                 <div>
                   <p className="text-xs text-on-surface-variant">{t('payment_status')}</p>
-                  {justPaid && (application as any).payment_status !== 'paid' ? (
+                  {(application as any).status === 'rejected' ? (
+                    /* Отклонённая заявка — оплата не требуется */
+                    <Badge variant="secondary" className="mt-1">—</Badge>
+                  ) : justPaid && (application as any).payment_status !== 'paid' ? (
                     <Badge variant="secondary" className="mt-1">
                       Ожидает подтверждения
                     </Badge>

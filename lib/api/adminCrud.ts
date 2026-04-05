@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
+/** Роли с полными правами на CRUD через adminCrud */
+const ADMIN_CRUD_ROLES = ['super_admin', 'organizer']
+
 export async function getAdminUser() {
   const supabase = createServerSupabaseClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { supabase, admin: null }
   const { data: user } = await supabase.from('users')
     .select('id, role, festival_id, active').eq('id', session.user.id).single()
-  if (!user || user.role !== 'admin' || !user.active) return { supabase, admin: null }
+  if (!user || !ADMIN_CRUD_ROLES.includes(user.role) || !user.active) return { supabase, admin: null }
   return { supabase, admin: user }
 }
 

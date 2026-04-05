@@ -63,6 +63,17 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('payment_status', 'paid'),
   ])
 
+  // Статистика пакетов: количество и выручка
+  const { data: packagesStats } = await supabase
+    .from('application_packages')
+    .select('quantity, packages(price, currency, name_i18n)')
+    .eq('festival_id', festivalId!)
+  
+  const packagesSold = (packagesStats ?? []).reduce((sum: number, ap: any) => sum + (ap.quantity ?? 0), 0)
+  const packagesRevenue = (packagesStats ?? []).reduce((sum: number, ap: any) => {
+    return sum + ((ap.packages?.price ?? 0) * (ap.quantity ?? 0))
+  }, 0)
+
   // Непрочитанные сообщения от участников — двухшаговый запрос без join
   const { data: festivalAppIds } = await supabase
     .from('applications')
@@ -156,6 +167,15 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
         <StatCard label="Отклонено" value={rejectedApps ?? 0} icon={XCircle} color="text-red-500" />
         <StatCard label="Судей" value={totalJudges ?? 0} icon={Users} href={`/${locale}/admin/judges`} />
         <StatCard label="Оплачено" value={paidApps ?? 0} icon={CreditCard} color="text-emerald-500" />
+        {packagesSold > 0 && (
+          <StatCard
+            label={`Пакетов продано · ${packagesRevenue > 0 ? packagesRevenue.toLocaleString('ru') + ' ₽' : ''}`}
+            value={packagesSold}
+            icon={TrendingUp}
+            color="text-violet-500"
+            href={`/${locale}/admin/settings`}
+          />
+        )}
         {totalUnread > 0 && (
           <StatCard label="Новых сообщений" value={totalUnread} icon={MessageCircle} color="text-red-500" href={`/${locale}/admin/applications`} />
         )}
