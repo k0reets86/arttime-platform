@@ -54,7 +54,6 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     { count: rejectedApps },
     { count: totalJudges },
     { count: paidApps },
-    { data: unreadMsgsRaw },
   ] = await Promise.all([
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'submitted'),
@@ -62,23 +61,38 @@ export default async function AdminDashboard({ params: { locale } }: { params: {
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('status', 'rejected'),
     supabase.from('judge_assignments').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!),
     supabase.from('applications').select('*', { count: 'exact', head: true }).eq('festival_id', festivalId!).eq('payment_status', 'paid'),
-    // Непрочитанные сообщения от участников
-    supabase
+  ])
+
+  // Непрочитанные сообщения от участников — двухшаговый запрос без join
+  const { data: festivalAppIds } = await supabase
+    .from('applications')
+    .select('id')
+    .eq('festival_id', festivalId!)
+
+  const allAppIds = (festivalAppIds ?? []).map((a: any) => a.id as string)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let unreadMsgsRaw: any[] = []
+  if (allAppIds.length > 0) {
+    const { data } = await supabase
       .from('application_messages')
-      .select('application_id, message, created_at, sender_name, applications!inner(festival_id)')
+      .select('application_id, message, created_at, sender_name')
       .eq('sender_type', 'participant')
       .eq('is_read', false)
-      .eq('applications.festival_id', festivalId!)
-      .order('created_at', { ascending: false }),
-  ])
+      .in('application_id', allAppIds)
+      .order('created_at', { ascending: false })
+    unreadMsgsRaw = data ?? []
+  }
 
   // Группируем непрочитанные по application_id
   const unreadByApp: Record<string, { message: string; created_at: string; sender_name: string }[]> = {}
-  for (const msg of unreadMsgsRaw ?? []) {
-    if (!unreadByApp[msg.application_id]) unreadByApp[msg.application_id] = []
-    unreadByApp[msg.application_id].push({ message: msg.message, created_at: msg.created_at, sender_name: msg.sender_name })
+  for (const msg of unreadMsgsRaw) {
+    const appId = msg.application_id as string | null
+    if (!appId) continue
+    if (!unreadByApp[appId]) unreadByApp[appId] = []
+    unreadByApp[appId].push({ message: msg.message as string, created_at: msg.created_at as string, sender_name: msg.sender_name as string })
   }
-  const totalUnread = (unreadMsgsRaw ?? []).length
+  const totalUnread = unreadMsgsRaw.length
 
   // Recent applications
   const { data: recentApps } = await supabase

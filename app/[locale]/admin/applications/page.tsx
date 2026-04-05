@@ -96,8 +96,10 @@ export default async function ApplicationsPage({
       .in('application_id', appIds)
       .order('created_at', { ascending: false })
     for (const msg of unreadMsgs ?? []) {
-      if (!unreadByApp[msg.application_id]) unreadByApp[msg.application_id] = []
-      unreadByApp[msg.application_id].push({ message: msg.message, created_at: msg.created_at, sender_name: msg.sender_name })
+      const appId = msg.application_id as string | null
+      if (!appId) continue
+      if (!unreadByApp[appId]) unreadByApp[appId] = []
+      unreadByApp[appId].push({ message: msg.message as string, created_at: msg.created_at as string, sender_name: msg.sender_name as string })
     }
   }
 
