@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   CreditCard, Search, CheckCircle, Receipt,
   Loader2, ChevronRight, AlertTriangle,
-  Banknote, Ticket, BarChart3, QrCode
+  Banknote, Ticket, BarChart3, QrCode, Mail
 } from 'lucide-react'
 
 interface Application {
@@ -52,8 +52,9 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
   const [buyerName, setBuyerName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [buyerEmail, setBuyerEmail] = useState('')
   const [issuedQr, setIssuedQr] = useState<string | null>(null)
-  const [issuedInfo, setIssuedInfo] = useState<{ name: string; amount: number; qty: number } | null>(null)
+  const [issuedInfo, setIssuedInfo] = useState<{ name: string; amount: number; qty: number; email?: string } | null>(null)
 
   const total = selectedType ? selectedType.price * qty : 0
 
@@ -75,8 +76,8 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка')
       setIssuedQr(data.ticket_token)
-      setIssuedInfo({ name: buyerName, amount: total, qty })
-      setQty(1); setBuyerName('')
+      setIssuedInfo({ name: buyerName, amount: total, qty, email: buyerEmail || undefined })
+      setQty(1); setBuyerName(''); setBuyerEmail('')
       router.refresh()
     } catch (e: any) {
       setError(e.message)
@@ -114,6 +115,19 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
           )}
         </div>
         <p className="text-xs text-on-surface-variant">Покажите или распечатайте QR-код</p>
+
+        {/* Send by email */}
+        {issuedInfo?.email && (
+          <a
+            href={`mailto:${issuedInfo.email}?subject=${encodeURIComponent('Ваш билет на фестиваль')}&body=${encodeURIComponent(
+              `Здравствуйте${issuedInfo.name ? `, ${issuedInfo.name}` : ''}!\n\nВаш входной билет готов. Сохраните или распечатайте QR-код.\n\nКоличество билетов: ${issuedInfo.qty}\nСумма: ${issuedInfo.amount.toFixed(2)} €\n\n🔗 Ссылка для проверки:\n${verifyUrl}\n\nПри входе на фестиваль покажите QR-код.`
+            )}`}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-sm font-medium transition-colors"
+          >
+            <Mail className="w-4 h-4" /> Отправить на {issuedInfo.email}
+          </a>
+        )}
+
         <Button onClick={() => { setIssuedQr(null); setIssuedInfo(null) }} className="w-full">
           Следующий билет
         </Button>
@@ -150,6 +164,10 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
         <div>
           <label className="text-sm font-medium text-on-surface mb-1.5 block">Имя покупателя (необязательно)</label>
           <Input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder="Иванов Иван" />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-on-surface mb-1.5 block">Email покупателя (для отправки QR)</label>
+          <Input type="email" value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} placeholder="ivan@example.com" />
         </div>
         <div>
           <label className="text-sm font-medium text-on-surface mb-1.5 block">Количество</label>

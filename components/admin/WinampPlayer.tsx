@@ -22,6 +22,9 @@ interface Track {
 interface ProgramSlot {
   id: string
   slot_number: number
+  track_type?: 'participant' | 'custom' | null
+  custom_track_name?: string | null
+  custom_track_url?: string | null
   applications: {
     id: string
     name: string
@@ -47,19 +50,33 @@ type RepeatMode = 'none' | 'all' | 'one'
 
 export default function WinampPlayer({ programSlots, locale }: Props) {
   const [tracks, setTracks] = useState<Track[]>(() =>
-    programSlots
-      .filter(s => s.applications)
-      .map(s => ({
+    programSlots.map(s => {
+      if (s.track_type === 'custom') {
+        return {
+          id: s.id,
+          slotNumber: s.slot_number,
+          performanceNumber: null,
+          performerName: s.custom_track_name ?? 'Муз. вставка',
+          performanceTitle: null,
+          applicationId: '',
+          signedUrl: s.custom_track_url ?? null,
+          fileName: s.custom_track_name ?? null,
+          loadState: (s.custom_track_url ? 'ready' : 'error') as Track['loadState'],
+        }
+      }
+      if (!s.applications) return null
+      return {
         id: s.id,
         slotNumber: s.slot_number,
-        performanceNumber: s.applications!.performance_number ?? null,
-        performerName: s.applications!.name,
-        performanceTitle: s.applications!.performance_title,
-        applicationId: s.applications!.id,
+        performanceNumber: s.applications.performance_number ?? null,
+        performerName: s.applications.name,
+        performanceTitle: s.applications.performance_title,
+        applicationId: s.applications.id,
         signedUrl: null,
         fileName: null,
-        loadState: 'idle',
-      }))
+        loadState: 'idle' as Track['loadState'],
+      }
+    }).filter(Boolean) as Track[]
   )
 
   const [currentIdx, setCurrentIdx] = useState<number | null>(null)
@@ -80,6 +97,8 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
   const loadTrack = useCallback(async (idx: number, currentTracks: Track[]) => {
     const track = currentTracks[idx]
     if (!track || track.loadState !== 'idle') return
+    // Custom tracks already have their URL set — skip API fetch
+    if (!track.applicationId) return
 
     setTracks(prev => {
       const next = [...prev]

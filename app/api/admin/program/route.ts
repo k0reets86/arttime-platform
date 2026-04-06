@@ -32,6 +32,9 @@ export async function PUT(req: NextRequest) {
         technical_comment: s.technical_comment ?? null,
         day_label: s.day_label ?? null,
         stage_label: s.stage_label ?? null,
+        track_type: s.track_type ?? 'participant',
+        custom_track_name: s.custom_track_name ?? null,
+        custom_track_url: s.custom_track_url ?? null,
       }))
 
       const { error: insertErr } = await supabase.from('program').insert(insertData)
@@ -55,6 +58,7 @@ export async function GET(req: NextRequest) {
       .from('program')
       .select(`
         id, slot_number, start_time, end_time, technical_comment, day_label, stage_label,
+        track_type, custom_track_name, custom_track_url,
         applications(id, name, performance_number, performance_title, performance_duration_sec, video_link)
       `)
       .eq('festival_id', festivalId)

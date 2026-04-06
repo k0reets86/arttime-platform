@@ -17,6 +17,7 @@ export default async function ProgramPage({
       .from('program')
       .select(`
         id, slot_number, start_time, end_time, technical_comment, day_label, stage_label,
+        track_type, custom_track_name, custom_track_url,
         applications(id, name, performance_number, performance_title, performance_duration_sec, video_link, nomination_id,
           nominations(name_i18n, categories(name_i18n))
         )
@@ -47,7 +48,7 @@ export default async function ProgramPage({
       </div>
 
       {/* Winamp-style playlist player */}
-      {(programSlots ?? []).some((s: any) => s.applications) && (
+      {(programSlots ?? []).length > 0 && (
         <WinampPlayer
           programSlots={(programSlots ?? []) as any[]}
           locale={locale}

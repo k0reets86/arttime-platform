@@ -11,13 +11,28 @@ export default async function ResultsPage({
   searchParams,
 }: {
   params: { locale: string }
-  searchParams: { id?: string }
+  searchParams: { id?: string; email?: string }
 }) {
   const supabase = createServerSupabaseClient()
-  const applicationId = searchParams.id
+  const applicationId = searchParams.id?.trim()
+  const searchEmail = searchParams.email?.trim().toLowerCase()
 
   let application = null
   let aggregate = null
+  let emailResults: any[] = []
+
+  // Search by email — return list of applications for that email
+  if (searchEmail && !applicationId) {
+    const { data: apps } = await supabase
+      .from('applications')
+      .select(`
+        id, name, performance_number, performance_title, contact_email,
+        nominations(id, name_i18n, categories(name_i18n))
+      `)
+      .ilike('contact_email', searchEmail)
+      .order('created_at', { ascending: false })
+    emailResults = apps ?? []
+  }
 
   if (applicationId) {
     const { data: app } = await supabase
@@ -65,7 +80,24 @@ export default async function ResultsPage({
         </div>
 
         {/* Search form */}
-        <form method="GET" className="bg-surface-container-lowest rounded-xl p-5 shadow-radiant">
+        <form method="GET" className="bg-surface-container-lowest rounded-xl p-5 shadow-radiant space-y-3">
+          <div className="flex gap-3">
+            <input
+              name="email"
+              defaultValue={searchEmail}
+              placeholder="Email участника"
+              type="email"
+              className="flex-1 h-10 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <Button type="submit" className="primary-gradient text-on-primary shrink-0">
+              Найти
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 border-t border-outline-variant/20" />
+            <span className="text-xs text-on-surface-variant">или по ID заявки</span>
+            <div className="flex-1 border-t border-outline-variant/20" />
+          </div>
           <div className="flex gap-3">
             <input
               name="id"
@@ -73,11 +105,48 @@ export default async function ResultsPage({
               placeholder="ID заявки (например: abc123...)"
               className="flex-1 h-10 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <Button type="submit" className="primary-gradient text-on-primary shrink-0">
+            <Button type="submit" variant="outline" className="shrink-0">
               Найти
             </Button>
           </div>
         </form>
+
+        {/* Email search results */}
+        {searchEmail && !applicationId && emailResults.length === 0 && (
+          <div className="bg-surface-container-lowest rounded-xl p-6 shadow-radiant text-center text-on-surface-variant">
+            Заявки с email <strong>{searchEmail}</strong> не найдены
+          </div>
+        )}
+        {searchEmail && !applicationId && emailResults.length > 0 && (
+          <div className="bg-surface-container-lowest rounded-xl shadow-radiant overflow-hidden">
+            <div className="px-5 py-4 border-b border-outline-variant/10">
+              <p className="font-medium text-on-surface text-sm">Заявки для {searchEmail}</p>
+            </div>
+            <div className="divide-y divide-outline-variant/10">
+              {emailResults.map((app: any) => (
+                <a
+                  key={app.id}
+                  href={`?id=${app.id}`}
+                  className="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low transition-colors"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-on-surface text-sm">{app.name}</p>
+                    {app.performance_title && (
+                      <p className="text-xs text-on-surface-variant italic">«{app.performance_title}»</p>
+                    )}
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {getI18n((app.nominations as any)?.categories?.name_i18n ?? null)} / {getI18n((app.nominations as any)?.name_i18n ?? null)}
+                    </p>
+                  </div>
+                  {app.performance_number && (
+                    <span className="text-sm font-mono text-on-surface-variant">#{app.performance_number}</span>
+                  )}
+                  <Trophy className="w-4 h-4 text-on-surface-variant" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Result card */}
         {applicationId && !application && (

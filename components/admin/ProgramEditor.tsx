@@ -14,6 +14,9 @@ import {
 interface ProgramSlot {
   id: string; slot_number: number; start_time: string | null; end_time: string | null
   technical_comment: string | null; day_label: string | null; stage_label: string | null
+  track_type?: 'participant' | 'custom' | null
+  custom_track_name?: string | null
+  custom_track_url?: string | null
   applications: {
     id: string; name: string; performance_number: number | null; performance_title: string | null
     performance_duration_sec: number | null; nomination_id: string; video_link?: string | null
@@ -131,14 +134,23 @@ function MusicPlayer({ applicationId, locale }: { applicationId: string; locale:
 
   const pct = duration > 0 ? (current / duration) * 100 : 0
 
+  // Prevent drag from intercepting clicks inside the player
+  const stopDrag = (e: React.MouseEvent | React.TouchEvent) => e.stopPropagation()
+
   return (
-    <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-xl px-2.5 py-1.5 min-w-[220px] max-w-[320px]">
+    <div
+      className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-xl px-2.5 py-1.5 min-w-[220px] max-w-[320px]"
+      onMouseDown={stopDrag}
+      onClick={stopDrag}
+      draggable={false}
+    >
       {musicUrl && <audio ref={audioRef} src={musicUrl} preload="auto" />}
 
       {/* Play/Pause */}
       <button
-        onClick={toggle}
+        onClick={(e) => { e.stopPropagation(); toggle() }}
         className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-colors shrink-0"
+        type="button"
       >
         {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3 ml-0.5" />}
       </button>
@@ -155,6 +167,7 @@ function MusicPlayer({ applicationId, locale }: { applicationId: string; locale:
             step={0.1}
             value={current}
             onChange={e => seek(parseFloat(e.target.value))}
+            onMouseDown={e => e.stopPropagation()}
             className="flex-1 h-1 accent-purple-600 cursor-pointer"
             style={{
               background: `linear-gradient(to right, rgb(147,51,234) ${pct}%, #e9d5ff ${pct}%)`
@@ -188,7 +201,10 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showAddPanel, setShowAddPanel] = useState(false)
+  const [addMode, setAddMode] = useState<'participant' | 'custom'>('participant')
   const [selectedAppId, setSelectedAppId] = useState('')
+  const [customTrackName, setCustomTrackName] = useState('')
+  const [customTrackUrl, setCustomTrackUrl] = useState('')
   const [dayLabel, setDayLabel] = useState('День 1')
   const [stageLabel, setStageLabel] = useState('Главная сцена')
 
@@ -224,6 +240,25 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
   }
 
   const addSlot = () => {
+    if (addMode === 'custom') {
+      if (!customTrackName.trim()) return
+      const newSlot: ProgramSlot = {
+        id: `new-${Date.now()}`,
+        slot_number: slots.length + 1,
+        start_time: null, end_time: null, technical_comment: null,
+        day_label: dayLabel || null,
+        stage_label: stageLabel || null,
+        track_type: 'custom',
+        custom_track_name: customTrackName.trim(),
+        custom_track_url: customTrackUrl.trim() || null,
+        applications: null,
+      }
+      setSlots(prev => [...prev, newSlot])
+      setCustomTrackName(''); setCustomTrackUrl('')
+      setShowAddPanel(false)
+      return
+    }
+
     if (!selectedAppId) return
     const app = approvedApps.find(a => a.id === selectedAppId)
     if (!app) return
@@ -234,6 +269,9 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
       start_time: null, end_time: null, technical_comment: null,
       day_label: dayLabel || null,
       stage_label: stageLabel || null,
+      track_type: 'participant',
+      custom_track_name: null,
+      custom_track_url: null,
       applications: {
         ...app,
         nominations: nom ? { name_i18n: nom.name_i18n, categories: nom.categories } : null,
@@ -267,6 +305,9 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
             start_time: s.start_time, end_time: s.end_time,
             technical_comment: s.technical_comment,
             day_label: s.day_label, stage_label: s.stage_label,
+            track_type: s.track_type ?? 'participant',
+            custom_track_name: s.custom_track_name ?? null,
+            custom_track_url: s.custom_track_url ?? null,
           })),
         }),
       })
@@ -316,33 +357,89 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
 
       {/* Add panel */}
       {showAddPanel && (
-        <div className="bg-surface-container-lowest rounded-xl p-4 shadow-radiant border border-outline-variant/20">
-          <h3 className="font-medium text-on-surface mb-3">Добавить в программу</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-1">
-              <select
-                value={selectedAppId}
-                onChange={e => setSelectedAppId(e.target.value)}
-                className="w-full h-10 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+        <div className="bg-surface-container-lowest rounded-xl p-4 shadow-radiant border border-outline-variant/20 space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-on-surface">Добавить в программу</h3>
+            {/* Mode tabs */}
+            <div className="flex rounded-lg border border-outline-variant/30 overflow-hidden ml-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setAddMode('participant')}
+                className={`px-3 py-1.5 font-medium transition-colors ${addMode === 'participant' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
               >
-                <option value="">Выберите участника...</option>
-                {unscheduledApps.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.performance_number ? `№${a.performance_number} · ` : ''}{a.name}
-                    {a.performance_title ? ` — «${a.performance_title}»` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Input value={dayLabel} onChange={e => setDayLabel(e.target.value)} placeholder="День 1" />
-            </div>
-            <div>
-              <Input value={stageLabel} onChange={e => setStageLabel(e.target.value)} placeholder="Главная сцена" />
+                👤 Участник
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode('custom')}
+                className={`px-3 py-1.5 font-medium transition-colors ${addMode === 'custom' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+              >
+                🎵 Муз. вставка
+              </button>
             </div>
           </div>
-          <div className="flex gap-2 mt-3">
-            <Button onClick={addSlot} disabled={!selectedAppId} className="primary-gradient text-on-primary">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {addMode === 'participant' ? (
+              <div className="sm:col-span-1">
+                <select
+                  value={selectedAppId}
+                  onChange={e => setSelectedAppId(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-outline-variant/40 bg-surface-container-low px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Выберите участника...</option>
+                  {unscheduledApps.map(a => (
+                    <option key={a.id} value={a.id}>
+                      {a.performance_number ? `№${a.performance_number} · ` : ''}{a.name}
+                      {a.performance_title ? ` — «${a.performance_title}»` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Input
+                    value={customTrackName}
+                    onChange={e => setCustomTrackName(e.target.value)}
+                    placeholder="Название (Гимн фестиваля, Антракт...)"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Input
+                    value={customTrackUrl}
+                    onChange={e => setCustomTrackUrl(e.target.value)}
+                    placeholder="URL аудиофайла (https://... .mp3) — необязательно"
+                    type="url"
+                  />
+                </div>
+              </>
+            )}
+            {addMode === 'participant' && (
+              <>
+                <div>
+                  <Input value={dayLabel} onChange={e => setDayLabel(e.target.value)} placeholder="День 1" />
+                </div>
+                <div>
+                  <Input value={stageLabel} onChange={e => setStageLabel(e.target.value)} placeholder="Главная сцена" />
+                </div>
+              </>
+            )}
+          </div>
+
+          {addMode === 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Input value={dayLabel} onChange={e => setDayLabel(e.target.value)} placeholder="День 1" />
+              <Input value={stageLabel} onChange={e => setStageLabel(e.target.value)} placeholder="Главная сцена" />
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              onClick={addSlot}
+              disabled={addMode === 'participant' ? !selectedAppId : !customTrackName.trim()}
+              className="primary-gradient text-on-primary"
+            >
               Добавить
             </Button>
             <Button variant="outline" onClick={() => setShowAddPanel(false)}>Отмена</Button>
@@ -380,22 +477,32 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="flex items-start gap-2 flex-wrap">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-on-surface text-sm">{slot.applications?.name ?? '(нет участника)'}</p>
-                    {slot.applications?.performance_title && (
-                      <p className="text-xs text-on-surface-variant italic">«{slot.applications.performance_title}»</p>
+                    {slot.track_type === 'custom' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🎵</span>
+                        <p className="font-medium text-on-surface text-sm">{slot.custom_track_name ?? 'Муз. вставка'}</p>
+                        <Badge variant="secondary" className="text-[10px] bg-purple-100 text-purple-700">вставка</Badge>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="font-medium text-on-surface text-sm">{slot.applications?.name ?? '(нет участника)'}</p>
+                        {slot.applications?.performance_title && (
+                          <p className="text-xs text-on-surface-variant italic">«{slot.applications.performance_title}»</p>
+                        )}
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {slot.applications?.nominations && (
+                            <span className="text-xs text-on-surface-variant">
+                              {getI18n(slot.applications.nominations.categories?.name_i18n ?? null)} /
+                              {getI18n(slot.applications.nominations.name_i18n)}
+                            </span>
+                          )}
+                          <span className="text-xs text-on-surface-variant flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
+                            {fmtDuration(slot.applications?.performance_duration_sec ?? null)}
+                          </span>
+                        </div>
+                      </>
                     )}
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {slot.applications?.nominations && (
-                        <span className="text-xs text-on-surface-variant">
-                          {getI18n(slot.applications.nominations.categories?.name_i18n ?? null)} /
-                          {getI18n(slot.applications.nominations.name_i18n)}
-                        </span>
-                      )}
-                      <span className="text-xs text-on-surface-variant flex items-center gap-0.5">
-                        <Clock className="w-3 h-3" />
-                        {fmtDuration(slot.applications?.performance_duration_sec ?? null)}
-                      </span>
-                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 shrink-0">
                     {slot.day_label && <Badge variant="secondary" className="text-[10px]">{slot.day_label}</Badge>}
@@ -404,6 +511,20 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
                 </div>
 
                 {/* ── Медиа: фонограмма + YouTube ── */}
+                {slot.track_type === 'custom' && slot.custom_track_url ? (
+                  <div
+                    className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-xl px-2.5 py-1.5"
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => e.stopPropagation()}
+                    draggable={false}
+                  >
+                    <Music className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                    <audio controls src={slot.custom_track_url} className="h-7 w-full max-w-xs" style={{ accentColor: '#7c3aed' }} />
+                  </div>
+                ) : slot.track_type === 'custom' ? (
+                  <span className="text-xs text-on-surface-variant italic">Без аудиофайла (вставьте URL для воспроизведения)</span>
+                ) : null}
+
                 {slot.applications && (
                   <div className="flex items-center gap-3 flex-wrap">
                     <MusicPlayer applicationId={slot.applications.id} locale={locale} />

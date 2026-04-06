@@ -32,7 +32,6 @@ export default function JudgesManager({ festivalId, judges, assignments, nominat
   const [assignOpen, setAssignOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
-  const [invitePassword, setInvitePassword] = useState('')
   const [selectedJudgeId, setSelectedJudgeId] = useState('')
   const [selectedNomId, setSelectedNomId] = useState('')
   const [weight, setWeight] = useState('1')
@@ -60,10 +59,9 @@ export default function JudgesManager({ festivalId, judges, assignments, nominat
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     const ok = await call('/api/admin/judges/invite', {
-      email: inviteEmail, display_name: inviteName,
-      password: invitePassword, festival_id: festivalId,
+      email: inviteEmail, display_name: inviteName, festival_id: festivalId,
     })
-    if (ok) { setInviteOpen(false); setInviteEmail(''); setInviteName(''); setInvitePassword('') }
+    if (ok) { setInviteOpen(false); setInviteEmail(''); setInviteName('') }
   }
 
   const handleAssign = async (e: React.FormEvent) => {
@@ -233,16 +231,8 @@ export default function JudgesManager({ festivalId, judges, assignments, nominat
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-on-surface">Временный пароль</label>
-              <Input
-                type="text"
-                value={invitePassword}
-                onChange={e => setInvitePassword(e.target.value)}
-                placeholder="Минимум 8 символов"
-                required
-                minLength={8}
-              />
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+              📧 На указанный email будет отправлено письмо-приглашение. Судья перейдёт по ссылке и сам установит пароль.
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2 pt-2">
@@ -287,11 +277,18 @@ export default function JudgesManager({ festivalId, judges, assignments, nominat
                 required
               >
                 <option value="">Выберите номинацию...</option>
-                {nominations.map((n: any) => (
-                  <option key={n.id} value={n.id}>
-                    {getI18n(n.categories?.name_i18n)} / {getI18n(n.name_i18n)}
-                  </option>
-                ))}
+                {[...nominations]
+                  .sort((a: any, b: any) => {
+                    const catA = getI18n(a.categories?.name_i18n)
+                    const catB = getI18n(b.categories?.name_i18n)
+                    if (catA !== catB) return catA.localeCompare(catB, 'ru')
+                    return getI18n(a.name_i18n).localeCompare(getI18n(b.name_i18n), 'ru')
+                  })
+                  .map((n: any) => (
+                    <option key={n.id} value={n.id}>
+                      {getI18n(n.categories?.name_i18n)} / {getI18n(n.name_i18n)}
+                    </option>
+                  ))}
               </select>
             </div>
             <div className="space-y-1.5">
