@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-  Music, ChevronDown, ChevronUp, Download, Loader2,
+  Music, ChevronUp, ChevronDown, Download, Loader2,
   ListMusic, Shuffle, Repeat, Repeat1
 } from 'lucide-react'
 
 interface Track {
   id: string
   slotNumber: number
+  performanceNumber: number | null
   performerName: string
   performanceTitle: string | null
   applicationId: string
@@ -24,6 +25,7 @@ interface ProgramSlot {
   applications: {
     id: string
     name: string
+    performance_number: number | null
     performance_title: string | null
     performance_duration_sec: number | null
   } | null
@@ -50,6 +52,7 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
       .map(s => ({
         id: s.id,
         slotNumber: s.slot_number,
+        performanceNumber: s.applications!.performance_number ?? null,
         performerName: s.applications!.name,
         performanceTitle: s.applications!.performance_title,
         applicationId: s.applications!.id,
@@ -67,16 +70,15 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
   const [muted, setMuted] = useState(false)
   const [repeat, setRepeat] = useState<RepeatMode>('none')
   const [shuffle, setShuffle] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
-  const [loadingAll, setLoadingAll] = useState(false)
-  const [allLoaded, setAllLoaded] = useState(false)
+  // Collapsed by default — mini bar only
+  const [expanded, setExpanded] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement>(null)
   const playlistRef = useRef<HTMLDivElement>(null)
 
   // Load music URL for a single track
-  const loadTrack = useCallback(async (idx: number) => {
-    const track = tracks[idx]
+  const loadTrack = useCallback(async (idx: number, currentTracks: Track[]) => {
+    const track = currentTracks[idx]
     if (!track || track.loadState !== 'idle') return
 
     setTracks(prev => {
@@ -106,37 +108,24 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
         return next
       })
     }
-  }, [tracks, locale])
-
-  // Load all tracks
-  const loadAll = useCallback(async () => {
-    setLoadingAll(true)
-    const promises = tracks.map((t, i) =>
-      t.loadState === 'idle' ? loadTrack(i) : Promise.resolve()
-    )
-    await Promise.all(promises)
-    setLoadingAll(false)
-    setAllLoaded(true)
-  }, [tracks, loadTrack])
+  }, [locale])
 
   // Play track at index
   const playTrack = useCallback(async (idx: number) => {
-    const track = tracks[idx]
-    if (!track) return
-
-    // Load if needed
-    if (track.loadState === 'idle') {
-      await loadTrack(idx)
-    }
-
+    setTracks(prev => {
+      const track = prev[idx]
+      if (track && track.loadState === 'idle') {
+        loadTrack(idx, prev)
+      }
+      return prev
+    })
     setCurrentIdx(idx)
 
-    // Auto scroll playlist
     setTimeout(() => {
       const row = playlistRef.current?.querySelector(`[data-idx="${idx}"]`)
       row?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 100)
-  }, [tracks, loadTrack])
+  }, [loadTrack])
 
   // When currentIdx or signedUrl changes — update audio src
   useEffect(() => {
@@ -164,7 +153,6 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
     const onEnded = () => {
       setPlaying(false)
       setCurrentTime(0)
-      // Next track logic
       if (repeat === 'one') {
         audio.play().catch(() => null)
         return
@@ -177,9 +165,7 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
           return available[Math.floor(Math.random() * available.length)]
         }
         const next = prev + 1
-        if (next >= tracks.length) {
-          return repeat === 'all' ? 0 : null
-        }
+        if (next >= tracks.length) return repeat === 'all' ? 0 : null
         return next
       })
     }
@@ -200,9 +186,7 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
 
   // Volume sync
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = muted ? 0 : volume
-    }
+    if (audioRef.current) audioRef.current.volume = muted ? 0 : volume
   }, [volume, muted])
 
   const togglePlay = () => {
@@ -220,157 +204,209 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
   const prev = () => {
     if (currentIdx === null) return
     if (currentTime > 3) { seek(0); return }
-    const pidx = shuffle
-      ? Math.floor(Math.random() * tracks.length)
-      : Math.max(0, currentIdx - 1)
+    const pidx = shuffle ? Math.floor(Math.random() * tracks.length) : Math.max(0, currentIdx - 1)
     playTrack(pidx)
   }
 
   const next = () => {
     if (currentIdx === null) return
-    const nidx = shuffle
-      ? Math.floor(Math.random() * tracks.length)
-      : Math.min(tracks.length - 1, currentIdx + 1)
+    const nidx = shuffle ? Math.floor(Math.random() * tracks.length) : Math.min(tracks.length - 1, currentIdx + 1)
     playTrack(nidx)
   }
 
   const currentTrack = currentIdx !== null ? tracks[currentIdx] : null
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
   const readyCount = tracks.filter(t => t.loadState === 'ready').length
-  const repeatIcon = repeat === 'none' ? Repeat : repeat === 'all' ? Repeat : Repeat1
+
+  // Label for track number: performance_number if available, else slot_number
+  const trackLabel = (t: Track) => t.performanceNumber != null ? `#${t.performanceNumber}` : `${t.slotNumber}`
 
   if (tracks.length === 0) return null
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-purple-200/60 shadow-lg bg-gradient-to-b from-[#1a0a2e] to-[#2d0050]">
+    <>
       <audio ref={audioRef} preload="auto" />
 
-      {/* ── HEADER / MAIN CONTROLS ── */}
-      <div className="px-4 pt-4 pb-3 space-y-3">
-        {/* Title bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ListMusic className="w-4 h-4 text-purple-400" />
-            <span className="text-xs font-bold text-purple-300 uppercase tracking-widest">
-              Программа · Плеер
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-purple-500">
-              {readyCount}/{tracks.length} треков
-            </span>
-            <button
-              onClick={() => setCollapsed(c => !c)}
-              className="text-purple-400 hover:text-purple-200 transition-colors"
-            >
-              {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
+      {/* ── FIXED BOTTOM PLAYER ── */}
+      <div className="fixed bottom-0 left-64 right-0 z-50">
+        {/* Expanded panel — slides in above mini-bar */}
+        {expanded && (
+          <div className="bg-gradient-to-b from-[#1a0a2e] to-[#250040] border-t border-purple-700/40 shadow-2xl">
 
-        {/* Now playing */}
-        <div className="min-h-[36px]">
-          {currentTrack ? (
-            <div>
-              <p className="text-white font-semibold text-sm leading-tight truncate">
-                {currentTrack.slotNumber}. {currentTrack.performerName}
-              </p>
-              {currentTrack.performanceTitle && (
-                <p className="text-purple-300 text-xs truncate">{currentTrack.performanceTitle}</p>
-              )}
-              {currentTrack.loadState === 'loading' && (
-                <span className="text-purple-400 text-xs flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Загрузка...
-                </span>
-              )}
-              {currentTrack.loadState === 'error' && (
-                <span className="text-red-400 text-xs">Файл не найден</span>
+            {/* ── SEEK BAR ── */}
+            <div className="px-4 pt-3 pb-1">
+              <input
+                type="range"
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                value={currentTime}
+                onChange={e => seek(parseFloat(e.target.value))}
+                disabled={!currentTrack?.signedUrl}
+                className="w-full h-1.5 rounded-full cursor-pointer appearance-none"
+                style={{
+                  background: currentTrack?.signedUrl
+                    ? `linear-gradient(to right, #a855f7 ${pct}%, #4c1d95 ${pct}%)`
+                    : '#4c1d95',
+                  accentColor: '#a855f7',
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-purple-500 tabular-nums mt-0.5">
+                <span>{fmt(currentTime)}</span>
+                <span>{duration > 0 ? fmt(duration) : '—'}</span>
+              </div>
+            </div>
+
+            {/* ── EXTRA CONTROLS ── */}
+            <div className="flex items-center justify-between px-4 pb-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShuffle(s => !s)}
+                  className={`p-1.5 rounded-lg transition-colors text-xs ${shuffle ? 'text-purple-300 bg-purple-800' : 'text-purple-600 hover:text-purple-400'}`}
+                  title="Случайный порядок"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setRepeat(r => r === 'none' ? 'all' : r === 'all' ? 'one' : 'none')}
+                  className={`p-1.5 rounded-lg transition-colors ${repeat !== 'none' ? 'text-purple-300 bg-purple-800' : 'text-purple-600 hover:text-purple-400'}`}
+                  title={`Повтор: ${repeat}`}
+                >
+                  {repeat === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <span className="text-xs text-purple-600">{readyCount}/{tracks.length} треков загружено</span>
+              {currentTrack?.signedUrl && (
+                <a
+                  href={currentTrack.signedUrl}
+                  download={currentTrack.fileName ?? 'track.mp3'}
+                  className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-400 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </a>
               )}
             </div>
-          ) : (
-            <p className="text-purple-500 text-xs">Выберите трек для воспроизведения</p>
-          )}
-        </div>
 
-        {/* Seekbar */}
-        <div className="space-y-1">
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime}
-            onChange={e => seek(parseFloat(e.target.value))}
-            disabled={!currentTrack?.signedUrl}
-            className="w-full h-1.5 rounded-full cursor-pointer appearance-none"
-            style={{
-              background: currentTrack?.signedUrl
-                ? `linear-gradient(to right, #a855f7 ${pct}%, #4c1d95 ${pct}%)`
-                : '#4c1d95',
-              accentColor: '#a855f7',
-            }}
-          />
-          <div className="flex justify-between text-[10px] text-purple-500 tabular-nums">
-            <span>{fmt(currentTime)}</span>
-            <span>{duration > 0 ? fmt(duration) : '—'}</span>
-          </div>
-        </div>
-
-        {/* Controls row */}
-        <div className="flex items-center justify-between">
-          {/* Left: shuffle + repeat */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShuffle(s => !s)}
-              className={`p-1.5 rounded-lg transition-colors ${shuffle ? 'text-purple-300 bg-purple-800' : 'text-purple-600 hover:text-purple-400'}`}
-              title="Случайный порядок"
+            {/* ── PLAYLIST ── */}
+            <div
+              ref={playlistRef}
+              className="border-t border-purple-900/50 max-h-56 overflow-y-auto"
             >
-              <Shuffle className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setRepeat(r => r === 'none' ? 'all' : r === 'all' ? 'one' : 'none')}
-              className={`p-1.5 rounded-lg transition-colors ${repeat !== 'none' ? 'text-purple-300 bg-purple-800' : 'text-purple-600 hover:text-purple-400'}`}
-              title={`Повтор: ${repeat}`}
-            >
-              {repeat === 'one' ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
-            </button>
+              {tracks.map((track, idx) => {
+                const isActive = currentIdx === idx
+                return (
+                  <div
+                    key={track.id}
+                    data-idx={idx}
+                    onClick={() => playTrack(idx)}
+                    className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${
+                      isActive ? 'bg-purple-800/70 text-white' : 'text-purple-300 hover:bg-purple-900/40'
+                    }`}
+                  >
+                    {/* Track number */}
+                    <span className="text-[10px] text-purple-500 font-mono w-8 shrink-0 text-right">
+                      {trackLabel(track)}
+                    </span>
+
+                    {/* Status icon */}
+                    <div className="shrink-0 w-4 flex items-center justify-center">
+                      {isActive && playing ? (
+                        <div className="flex items-end gap-0.5 h-3">
+                          <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '12px', animationDelay: '0ms' }} />
+                          <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '8px', animationDelay: '150ms' }} />
+                          <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '14px', animationDelay: '300ms' }} />
+                        </div>
+                      ) : track.loadState === 'loading' ? (
+                        <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
+                      ) : track.loadState === 'error' ? (
+                        <span className="text-red-500 text-[10px]">✗</span>
+                      ) : track.loadState === 'ready' ? (
+                        <Music className="w-3 h-3 text-purple-600" />
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-800" />
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium truncate ${isActive ? 'text-white' : 'text-purple-200'}`}>
+                        {track.performerName}
+                      </p>
+                      {track.performanceTitle && (
+                        <p className="text-[10px] text-purple-500 truncate">{track.performanceTitle}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── MINI BAR (always visible) ── */}
+        <div className="h-14 flex items-center gap-3 px-4 bg-[#1a0a2e] border-t border-purple-800/60 shadow-[0_-4px_24px_rgba(93,63,211,0.2)]">
+
+          {/* Track info */}
+          <div className="flex-1 min-w-0">
+            {currentTrack ? (
+              <div>
+                <p className="text-white text-xs font-semibold truncate leading-tight">
+                  {trackLabel(currentTrack)} · {currentTrack.performerName}
+                </p>
+                {currentTrack.performanceTitle && (
+                  <p className="text-purple-400 text-[10px] truncate">{currentTrack.performanceTitle}</p>
+                )}
+                {currentTrack.loadState === 'loading' && (
+                  <p className="text-purple-500 text-[10px] flex items-center gap-1">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" /> Загрузка...
+                  </p>
+                )}
+                {currentTrack.loadState === 'error' && (
+                  <p className="text-red-400 text-[10px]">Файл не найден</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <ListMusic className="w-3.5 h-3.5 text-purple-600" />
+                <p className="text-purple-500 text-xs">Плеер программы · {tracks.length} треков</p>
+              </div>
+            )}
           </div>
 
-          {/* Center: prev / play / next */}
-          <div className="flex items-center gap-3">
+          {/* Playback controls */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={prev}
               disabled={currentIdx === null}
-              className="p-2 text-purple-400 hover:text-white transition-colors disabled:opacity-30"
+              className="p-1.5 text-purple-500 hover:text-purple-200 transition-colors disabled:opacity-30"
             >
-              <SkipBack className="w-5 h-5" />
+              <SkipBack className="w-4 h-4" />
             </button>
+
             <button
               onClick={togglePlay}
               disabled={!currentTrack?.signedUrl}
-              className="w-12 h-12 flex items-center justify-center rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-30 text-white shadow-lg shadow-purple-900 transition-all active:scale-95"
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-purple-700 hover:bg-purple-600 disabled:opacity-30 text-white transition-all active:scale-95 shrink-0"
             >
-              {playing
-                ? <Pause className="w-5 h-5" />
-                : <Play className="w-5 h-5 ml-0.5" />
-              }
+              {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
             </button>
+
             <button
               onClick={next}
               disabled={currentIdx === null}
-              className="p-2 text-purple-400 hover:text-white transition-colors disabled:opacity-30"
+              className="p-1.5 text-purple-500 hover:text-purple-200 transition-colors disabled:opacity-30"
             >
-              <SkipForward className="w-5 h-5" />
+              <SkipForward className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Right: volume */}
-          <div className="flex items-center gap-1.5">
+          {/* Volume */}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setMuted(m => !m)}
-              className="text-purple-500 hover:text-purple-300 transition-colors"
+              className="text-purple-600 hover:text-purple-400 transition-colors"
             >
-              {muted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {muted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
             <input
               type="range"
@@ -379,108 +415,35 @@ export default function WinampPlayer({ programSlots, locale }: Props) {
               step={0.01}
               value={muted ? 0 : volume}
               onChange={e => { setVolume(parseFloat(e.target.value)); setMuted(false) }}
-              className="w-20 h-1 cursor-pointer"
+              className="w-16 h-1 cursor-pointer"
               style={{
                 accentColor: '#a855f7',
                 background: `linear-gradient(to right, #a855f7 ${(muted ? 0 : volume) * 100}%, #4c1d95 ${(muted ? 0 : volume) * 100}%)`,
               }}
             />
           </div>
-        </div>
 
-        {/* Download current + load-all */}
-        <div className="flex items-center justify-between pt-1">
-          {currentTrack?.signedUrl ? (
-            <a
-              href={currentTrack.signedUrl}
-              download={currentTrack.fileName ?? 'track.mp3'}
-              className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-300 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" /> Скачать трек
-            </a>
-          ) : <span />}
-
-          {!allLoaded && (
-            <button
-              onClick={loadAll}
-              disabled={loadingAll}
-              className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-300 transition-colors"
-            >
-              {loadingAll
-                ? <Loader2 className="w-3 h-3 animate-spin" />
-                : <Music className="w-3 h-3" />
-              }
-              {loadingAll ? 'Загрузка...' : 'Загрузить все треки'}
-            </button>
+          {/* Progress mini */}
+          {currentTrack?.signedUrl && duration > 0 && (
+            <span className="hidden md:block text-[10px] text-purple-600 tabular-nums shrink-0">
+              {fmt(currentTime)} / {fmt(duration)}
+            </span>
           )}
+
+          {/* Expand/collapse button */}
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-purple-500 hover:text-purple-200 hover:bg-purple-900/50 transition-colors text-xs shrink-0"
+            title={expanded ? 'Свернуть плеер' : 'Развернуть плеер'}
+          >
+            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            <span className="hidden sm:block text-[10px]">{expanded ? 'Свернуть' : 'Плейлист'}</span>
+          </button>
         </div>
       </div>
 
-      {/* ── PLAYLIST ── */}
-      {!collapsed && (
-        <div
-          ref={playlistRef}
-          className="border-t border-purple-900/60 max-h-64 overflow-y-auto"
-        >
-          {tracks.map((track, idx) => {
-            const isActive = currentIdx === idx
-            return (
-              <div
-                key={track.id}
-                data-idx={idx}
-                onClick={() => playTrack(idx)}
-                className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                  isActive
-                    ? 'bg-purple-800/70 text-white'
-                    : 'text-purple-300 hover:bg-purple-900/40'
-                }`}
-              >
-                {/* Track number */}
-                <span className="text-[10px] text-purple-500 font-mono w-6 shrink-0 text-right">
-                  {track.slotNumber}
-                </span>
-
-                {/* Status icon */}
-                <div className="shrink-0 w-5 flex items-center justify-center">
-                  {isActive && playing ? (
-                    <div className="flex items-end gap-0.5 h-4">
-                      <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '12px', animationDelay: '0ms' }} />
-                      <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '8px', animationDelay: '150ms' }} />
-                      <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '14px', animationDelay: '300ms' }} />
-                      <span className="w-0.5 bg-purple-400 animate-[bounce_0.6s_ease-in-out_infinite]" style={{ height: '6px', animationDelay: '450ms' }} />
-                    </div>
-                  ) : track.loadState === 'loading' ? (
-                    <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
-                  ) : track.loadState === 'error' ? (
-                    <span className="text-red-500 text-xs">✗</span>
-                  ) : track.loadState === 'ready' ? (
-                    <Music className="w-3 h-3 text-purple-500" />
-                  ) : (
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-700" />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium truncate ${isActive ? 'text-white' : 'text-purple-200'}`}>
-                    {track.performerName}
-                  </p>
-                  {track.performanceTitle && (
-                    <p className="text-[10px] text-purple-500 truncate">{track.performanceTitle}</p>
-                  )}
-                </div>
-
-                {/* File name if loaded */}
-                {track.fileName && (
-                  <span className="text-[10px] text-purple-600 truncate max-w-[100px] hidden sm:block">
-                    {track.fileName}
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
+      {/* Spacer so page content isn't hidden behind the fixed bar */}
+      <div className="h-14" />
+    </>
   )
 }

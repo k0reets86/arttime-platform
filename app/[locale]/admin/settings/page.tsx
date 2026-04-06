@@ -5,13 +5,14 @@ import CategoriesEditor from '@/components/admin/CategoriesEditor'
 import PackagesEditor from '@/components/admin/PackagesEditor'
 import DiplomaTemplateEditor from '@/components/admin/DiplomaTemplateEditor'
 import SettingsTabs from '@/components/admin/SettingsTabs'
+import DangerZone from '@/components/admin/DangerZone'
 
 export default async function SettingsPage({
   params: { locale },
 }: {
   params: { locale: string }
 }) {
-  const { festivalId } = await requireRole(['admin'], locale)
+  const { festivalId, role } = await requireRole(['admin'], locale)
   const supabase = createServerSupabaseClient()
 
   const [
@@ -49,6 +50,10 @@ export default async function SettingsPage({
         packages={packages ?? []}
         diplomaTemplate={diplomaTemplate ?? null}
       />
+
+      {role === 'super_admin' && (
+        <DangerZone festivalId={festivalId!} locale={locale} />
+      )}
     </div>
   )
 }

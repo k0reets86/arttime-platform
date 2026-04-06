@@ -53,7 +53,7 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [issuedQr, setIssuedQr] = useState<string | null>(null)
-  const [issuedInfo, setIssuedInfo] = useState<{ name: string; amount: number } | null>(null)
+  const [issuedInfo, setIssuedInfo] = useState<{ name: string; amount: number; qty: number } | null>(null)
 
   const total = selectedType ? selectedType.price * qty : 0
 
@@ -75,7 +75,7 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Ошибка')
       setIssuedQr(data.ticket_token)
-      setIssuedInfo({ name: buyerName || getI18n(selectedType.name_i18n), amount: total })
+      setIssuedInfo({ name: buyerName, amount: total, qty })
       setQty(1); setBuyerName('')
       router.refresh()
     } catch (e: any) {
@@ -87,7 +87,8 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
 
   if (issuedQr) {
     const appUrl = (typeof window !== 'undefined' ? window.location.origin : '')
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`${appUrl}/verify/${issuedQr}`)}`
+    const verifyUrl = `${appUrl}/verify/ticket/${issuedQr}`
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(verifyUrl)}`
     return (
       <div className="max-w-sm mx-auto text-center space-y-5 py-6">
         <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto">
@@ -95,12 +96,24 @@ function TicketSalesTab({ festivalId, ticketTypes }: { festivalId: string; ticke
         </div>
         <div>
           <h3 className="font-headline font-bold text-lg text-on-surface">Билет выдан!</h3>
-          <p className="text-sm text-on-surface-variant mt-1">{issuedInfo?.name} · {issuedInfo?.amount.toFixed(2)} €</p>
+          {issuedInfo?.name && (
+            <p className="text-sm font-medium text-primary mt-0.5">{issuedInfo.name}</p>
+          )}
+          <p className="text-sm text-on-surface-variant mt-0.5">
+            {issuedInfo?.qty && issuedInfo.qty > 1 ? `${issuedInfo.qty} билета · ` : ''}{issuedInfo?.amount.toFixed(2)} €
+          </p>
         </div>
         <div className="bg-white p-4 rounded-2xl inline-block shadow-radiant border border-outline-variant/10">
-          <img src={qrUrl} alt="QR код билета" className="w-48 h-48" />
+          <img src={qrUrl} alt="QR код билета" className="w-52 h-52" />
+          {issuedInfo?.qty && issuedInfo.qty > 1 && (
+            <div className="mt-2 text-center">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-sm font-bold rounded-full">
+                <Ticket className="w-3.5 h-3.5" /> × {issuedInfo.qty}
+              </span>
+            </div>
+          )}
         </div>
-        <p className="text-xs text-on-surface-variant">Покажите или распечатайте QR-код участнику</p>
+        <p className="text-xs text-on-surface-variant">Покажите или распечатайте QR-код</p>
         <Button onClick={() => { setIssuedQr(null); setIssuedInfo(null) }} className="w-full">
           Следующий билет
         </Button>

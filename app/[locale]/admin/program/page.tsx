@@ -17,7 +17,7 @@ export default async function ProgramPage({
       .from('program')
       .select(`
         id, slot_number, start_time, end_time, technical_comment, day_label, stage_label,
-        applications(id, name, performance_number, performance_title, performance_duration_sec, nomination_id,
+        applications(id, name, performance_number, performance_title, performance_duration_sec, video_link, nomination_id,
           nominations(name_i18n, categories(name_i18n))
         )
       `)
@@ -38,7 +38,7 @@ export default async function ProgramPage({
   ])
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-8 pb-20 space-y-6">
       <div>
         <h1 className="font-headline text-3xl font-bold text-on-surface">Программа</h1>
         <p className="text-on-surface-variant mt-1">

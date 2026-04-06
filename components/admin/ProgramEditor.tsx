@@ -371,7 +371,9 @@ export default function ProgramEditor({ festivalId, programSlots: initial, nomin
               {/* Drag handle */}
               <div className="flex flex-col items-center gap-1 pt-2 shrink-0 cursor-grab">
                 <GripVertical className="w-4 h-4 text-on-surface-variant" />
-                <span className="text-xs font-mono text-on-surface-variant">{slot.slot_number}</span>
+                <span className="text-xs font-mono text-on-surface-variant">
+                  {slot.applications?.performance_number ?? slot.slot_number}
+                </span>
               </div>
 
               {/* Main info */}

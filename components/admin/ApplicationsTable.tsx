@@ -163,14 +163,16 @@ export default function ApplicationsTable({
               <th className="px-4 py-3 w-10">
                 <button
                   onClick={toggleAll}
-                  className="w-4 h-4 rounded border-2 border-outline-variant/60 flex items-center justify-center hover:border-primary transition-colors"
+                  className="w-5 h-5 rounded border-2 flex items-center justify-center transition-all"
                   style={{
-                    backgroundColor: allSelected ? 'var(--color-primary)' : someSelected ? 'var(--color-primary-container)' : 'transparent',
+                    borderColor: (allSelected || someSelected) ? '#5d3fd3' : '#9ca3af',
+                    backgroundColor: allSelected ? '#5d3fd3' : someSelected ? '#a391ff' : '#fff',
+                    boxShadow: '0 0 0 1px rgba(0,0,0,0.08)',
                   }}
                 >
                   {(allSelected || someSelected) && (
-                    <svg viewBox="0 0 10 10" className="w-2.5 h-2.5 fill-white">
-                      <path d="M1 5l3 3 5-5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                    <svg viewBox="0 0 10 10" className="w-3 h-3">
+                      <path d="M1 5l3 3 5-5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                 </button>
@@ -205,17 +207,21 @@ export default function ApplicationsTable({
               return (
                 <tr
                   key={app.id}
-                  className={`hover:bg-surface-container-low transition-colors group cursor-pointer ${isChecked ? 'bg-primary/5' : ''}`}
+                  className={`transition-colors group cursor-pointer ${isChecked ? 'bg-primary/10 ring-1 ring-inset ring-primary/20' : 'hover:bg-surface-container-low'}`}
                 >
                   {/* Checkbox */}
                   <td className="px-4 py-3" onClick={e => { e.stopPropagation(); toggleOne(app.id) }}>
                     <div
-                      className="w-4 h-4 rounded border-2 border-outline-variant/60 flex items-center justify-center hover:border-primary transition-colors"
-                      style={{ backgroundColor: isChecked ? 'var(--color-primary)' : 'transparent' }}
+                      className="w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer"
+                      style={{
+                        borderColor: isChecked ? '#5d3fd3' : '#9ca3af',
+                        backgroundColor: isChecked ? '#5d3fd3' : '#fff',
+                        boxShadow: '0 0 0 1px rgba(0,0,0,0.06)',
+                      }}
                     >
                       {isChecked && (
-                        <svg viewBox="0 0 10 10" className="w-2.5 h-2.5">
-                          <path d="M1 5l3 3 5-5" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                        <svg viewBox="0 0 10 10" className="w-3 h-3">
+                          <path d="M1 5l3 3 5-5" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       )}
                     </div>
